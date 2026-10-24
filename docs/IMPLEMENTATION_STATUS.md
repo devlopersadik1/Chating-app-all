@@ -43,3 +43,14 @@ Do not commit `.env`, database passwords, Firebase service-account private keys,
 The Next.js login/register pages now call same-origin `/api/auth/*` route handlers. The route handlers forward requests to Express server-side and place the returned JWT into an HTTP-only cookie. Browser JavaScript does not receive the raw token from these handlers.
 
 Before production use, implement CSRF protections for cookie-authenticated state-changing routes, token/session revocation on logout, email verification and password recovery, then run a real dependency install/build and API security tests. No cPanel deployment or database migration was performed in this milestone.
+
+
+## Latest milestone — first text-chat implementation
+
+- Added authenticated Express endpoints for public user search, conversation listing/creation, message history, and sending text messages.
+- Conversation and message access is checked against active conversation membership; direct conversations are blocked if either participant has blocked the other.
+- Added Next.js server-side proxy routes so the browser calls same-origin chat endpoints while the session JWT stays in an HTTP-only cookie.
+- Added the first responsive chat screen at `/chat`, with people search, direct conversation creation, message history, and text sending.
+- Added a GitHub Actions workflow to run backend syntax checks and a Next.js production build on pushes and pull requests.
+
+**Not yet verified:** the CI workflow has been committed but its run result has not been checked. No live database connection, live API test, migration, or cPanel deployment was performed. Real-time delivery, unread/read receipts, file/media uploads, group UI, FCM, LiveKit, and E2EE remain future work.
