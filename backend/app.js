@@ -652,6 +652,207 @@ app.get('/api/v1/chat-folders/:id/items', requireAuth, async (req, res) => {
   }
 });
 
+
+function normalizeSpaceUsername(value) {
+  if (value == null || value === '') return null;
+  const username = String(value).trim().toLowerCase();
+  return /^[a-z0-9_]{4,40}$/.test(username) ? username : false;
+}
+
+async function getChannelMembership(db, channelId, userId) {
+  const [rows] = await db.execute(
+    "SELECT member_role, membership_status FROM channel_members WHERE channel_id = ? AND user_id = ? LIMIT 1",
+    [channelId, userId]
+  );
+  return rows[0] || null;
+}
+
+function canManageSpace(membership) {
+  return Boolean(membership && membership.membership_status === 'active' &&
+    ['owner', 'admin', 'moderator'].includes(membership.member_role));
+}
+
+// Create a channel or group. Owner membership is created atomically.
+app.post('/api/v1/channels', requireAuth, async (req, res) => {
+  const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+  const spaceType = req.body.space_type === 'group' ? 'group' : req.body.space_type === 'channel' ? 'channel' : null;
+  const visibility = req.body.visibility === 'private' ? 'private' : req.body.visibility === 'public' ? 'public' : 'public';
+  const username = normalizeSpaceUsername(req.body.username);
+  const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+  const joinApproval = req.body.join_approval_required === true || req.body.join_approval_required === 1;
+  const postingPermission = req.body.posting_permission === 'members' && spaceType === 'group' ? 'members' : 'admins_only';
+
+  if (!spaceType || title.length < 2 || title.length > 120 || description.length > 1000 || username === false) {
+    return res.status(400).json({ status: 'error', message: 'Invalid space type, title, description, or username (username: 4–40 letters, numbers, underscore)' });
+  }
+  try {
+    const db = await getPool().getConnection();
+    try {
+      await db.beginTransaction();
+      const [created] = await db.execute(
+        'INSERT INTO channels (owner_user_id, title, username, description, space_type, visibility, join_approval_required, posting_permission) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [req.authUserId, title, username, description || null, spaceType, visibility, joinApproval ? 1 : 0, postingPermission]
+      );
+      await db.execute(
+        "INSERT INTO channel_members (channel_id, user_id, member_role, membership_status) VALUES (?, ?, 'owner', 'active')",
+        [created.insertId, req.authUserId]
+      );
+      await db.commit();
+      return res.status(201).json({ status: 'ok', channel: { id: created.insertId, title, username, description: description || null, space_type: spaceType, visibility, join_approval_required: joinApproval, posting_permission: postingPermission, member_role: 'owner', membership_status: 'active' } });
+    } catch (err) {
+      await db.rollback();
+      if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ status: 'error', message: 'That public username is already in use' });
+      throw err;
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.error('Channel/group creation failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not create channel/group. Check migration 0005.' });
+  }
+});
+
+// List spaces the signed-in user belongs to.
+app.get('/api/v1/channels/mine', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await getPool().execute(
+      'SELECT c.id, c.owner_user_id, c.title, c.username, c.description, c.space_type, c.visibility, c.join_approval_required, c.posting_permission, c.member_count, c.status, cm.member_role, cm.membership_status FROM channel_members cm JOIN channels c ON c.id = cm.channel_id WHERE cm.user_id = ? AND cm.membership_status IN (\\'active\\', \\'pending\\') AND c.status = \\'active\\' ORDER BY c.updated_at DESC, c.id DESC LIMIT 100',
+      [req.authUserId]
+    );
+    return res.json({ status: 'ok', channels: rows });
+  } catch (err) {
+    console.error('My channels/groups list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load channels/groups. Check migration 0005.' });
+  }
+});
+
+// Public discovery never exposes private spaces.
+app.get('/api/v1/channels/discover', requireAuth, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const type = ['channel', 'group'].includes(req.query.space_type) ? req.query.space_type : null;
+  if (q.length > 80) return res.status(400).json({ status: 'error', message: 'Search query is too long' });
+  try {
+    const params = [];
+    let where = "c.status = 'active' AND c.visibility = 'public'";
+    if (type) { where += ' AND c.space_type = ?'; params.push(type); }
+    if (q) { where += ' AND (c.title LIKE ? OR c.username LIKE ?)'; params.push('%' + q + '%', '%' + q + '%'); }
+    params.push(req.authUserId);
+    const [rows] = await getPool().execute(
+      'SELECT c.id, c.title, c.username, c.description, c.space_type, c.member_count, c.is_verified, cm.membership_status AS my_membership_status FROM channels c LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = ? WHERE ' + where + ' ORDER BY c.member_count DESC, c.id DESC LIMIT 50',
+      [req.authUserId, ...params.slice(0, -1)]
+    );
+    return res.json({ status: 'ok', channels: rows });
+  } catch (err) {
+    console.error('Channel discovery failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not discover channels/groups. Check migration 0005.' });
+  }
+});
+
+// Join a public space; private spaces require a separate invite flow, not implemented yet.
+app.post('/api/v1/channels/:id/join', requireAuth, async (req, res) => {
+  const channelId = positiveId(req.params.id);
+  if (!channelId) return res.status(400).json({ status: 'error', message: 'Invalid channel/group ID' });
+  const db = await getPool().getConnection();
+  try {
+    await db.beginTransaction();
+    const [spaces] = await db.execute(
+      "SELECT id, visibility, join_approval_required, status FROM channels WHERE id = ? LIMIT 1 FOR UPDATE",
+      [channelId]
+    );
+    const space = spaces[0];
+    if (!space || space.status !== 'active' || space.visibility !== 'public') {
+      await db.rollback();
+      return res.status(404).json({ status: 'error', message: 'Public channel/group not found' });
+    }
+    const existing = await getChannelMembership(db, channelId, req.authUserId);
+    if (existing && existing.membership_status === 'active') {
+      await db.commit();
+      return res.json({ status: 'ok', membership_status: 'active', already_member: true });
+    }
+    const status = space.join_approval_required ? 'pending' : 'active';
+    await db.execute(
+      "INSERT INTO channel_members (channel_id, user_id, member_role, membership_status) VALUES (?, ?, 'member', ?) ON DUPLICATE KEY UPDATE membership_status = VALUES(membership_status), member_role = 'member', joined_at = CURRENT_TIMESTAMP",
+      [channelId, req.authUserId, status]
+    );
+    if (status === 'active') await db.execute('UPDATE channels SET member_count = member_count + 1 WHERE id = ?', [channelId]);
+    await db.commit();
+    return res.status(status === 'pending' ? 202 : 200).json({ status: 'ok', membership_status: status });
+  } catch (err) {
+    await db.rollback();
+    console.error('Channel/group join failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not join channel/group. Check migration 0005.' });
+  } finally {
+    db.release();
+  }
+});
+
+// List posts only for active members; public content is not exposed until join/discovery rules are expanded.
+app.get('/api/v1/channels/:id/posts', requireAuth, async (req, res) => {
+  const channelId = positiveId(req.params.id);
+  const beforeId = req.query.before_id === undefined ? null : positiveId(req.query.before_id);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || '30'), 10) || 30));
+  if (!channelId || (req.query.before_id !== undefined && !beforeId)) return res.status(400).json({ status: 'error', message: 'Invalid channel/group or pagination ID' });
+  try {
+    const membership = await getChannelMembership(getPool(), channelId, req.authUserId);
+    if (!membership || membership.membership_status !== 'active') return res.status(403).json({ status: 'error', message: 'Join this channel/group to view posts' });
+    const params = [channelId];
+    let cursor = '';
+    if (beforeId) { cursor = ' AND p.id < ?'; params.push(beforeId); }
+    params.push(limit);
+    const [rows] = await getPool().execute(
+      'SELECT p.id, p.channel_id, p.author_user_id, u.name AS author_name, u.username AS author_username, p.post_type, p.body, p.media_path, p.media_mime, p.media_size_bytes, p.is_pinned, p.comments_enabled, p.views_count, p.created_at FROM channel_posts p JOIN users u ON u.id = p.author_user_id WHERE p.channel_id = ? AND p.deleted_at IS NULL' + cursor + ' ORDER BY p.id DESC LIMIT ?',
+      params
+    );
+    return res.json({ status: 'ok', posts: rows.reverse() });
+  } catch (err) {
+    console.error('Channel/group posts list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load posts. Check migration 0005.' });
+  }
+});
+
+// Text-only post creation. Media uploads and post editing are separate milestones.
+app.post('/api/v1/channels/:id/posts', requireAuth, async (req, res) => {
+  const channelId = positiveId(req.params.id);
+  const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+  if (!channelId || !body || body.length > 4000) return res.status(400).json({ status: 'error', message: 'Post text must be 1–4000 characters' });
+  try {
+    const db = await getPool().getConnection();
+    try {
+      await db.beginTransaction();
+      const [spaces] = await db.execute("SELECT id, space_type, posting_permission, status FROM channels WHERE id = ? LIMIT 1 FOR UPDATE", [channelId]);
+      const space = spaces[0];
+      const membership = await getChannelMembership(db, channelId, req.authUserId);
+      if (!space || space.status !== 'active' || !membership || membership.membership_status !== 'active') {
+        await db.rollback();
+        return res.status(403).json({ status: 'error', message: 'Active channel/group membership required' });
+      }
+      if (space.space_type === 'channel' && !canManageSpace(membership)) {
+        await db.rollback();
+        return res.status(403).json({ status: 'error', message: 'Only channel admins can post' });
+      }
+      if (space.space_type === 'group' && space.posting_permission === 'admins_only' && !canManageSpace(membership)) {
+        await db.rollback();
+        return res.status(403).json({ status: 'error', message: 'Only group admins can post' });
+      }
+      const [created] = await db.execute(
+        "INSERT INTO channel_posts (channel_id, author_user_id, post_type, body) VALUES (?, ?, 'text', ?)",
+        [channelId, req.authUserId, body]
+      );
+      await db.execute('UPDATE channels SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [channelId]);
+      await db.commit();
+      return res.status(201).json({ status: 'ok', post: { id: created.insertId, channel_id: channelId, author_user_id: req.authUserId, post_type: 'text', body } });
+    } catch (err) {
+      await db.rollback();
+      throw err;
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.error('Channel/group post creation failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not create post. Check migration 0005.' });
+  }
+});
+
 app.get('/api/v1', (req, res) => {
   res.json({
     name: 'Talviro Chat API',
