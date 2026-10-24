@@ -605,6 +605,53 @@ app.patch('/api/v1/conversations/:id/preferences', requireAuth, async (req, res)
   }
 });
 
+
+app.post('/api/v1/chat-folders/:id/items', requireAuth, async (req, res) => {
+  const folderId = positiveId(req.params.id);
+  const conversationId = positiveId(req.body.conversation_id);
+  if (!folderId || !conversationId) return res.status(400).json({ status: 'error', message: 'Valid folder and conversation IDs are required' });
+  try {
+    const [folder] = await getPool().execute('SELECT id FROM chat_folders WHERE id = ? AND user_id = ? LIMIT 1', [folderId, req.authUserId]);
+    if (!folder.length) return res.status(404).json({ status: 'error', message: 'Folder not found' });
+    const [member] = await getPool().execute('SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL LIMIT 1', [conversationId, req.authUserId]);
+    if (!member.length) return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
+    await getPool().execute('INSERT IGNORE INTO chat_folder_items (folder_id, conversation_id) VALUES (?, ?)', [folderId, conversationId]);
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Folder item add failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not add conversation to folder. Check migration 0008.' });
+  }
+});
+
+app.delete('/api/v1/chat-folders/:id/items/:conversationId', requireAuth, async (req, res) => {
+  const folderId = positiveId(req.params.id);
+  const conversationId = positiveId(req.params.conversationId);
+  if (!folderId || !conversationId) return res.status(400).json({ status: 'error', message: 'Invalid folder or conversation ID' });
+  try {
+    const [folder] = await getPool().execute('SELECT id FROM chat_folders WHERE id = ? AND user_id = ? LIMIT 1', [folderId, req.authUserId]);
+    if (!folder.length) return res.status(404).json({ status: 'error', message: 'Folder not found' });
+    await getPool().execute('DELETE FROM chat_folder_items WHERE folder_id = ? AND conversation_id = ?', [folderId, conversationId]);
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Folder item removal failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not remove conversation from folder. Check migration 0008.' });
+  }
+});
+
+app.get('/api/v1/chat-folders/:id/items', requireAuth, async (req, res) => {
+  const folderId = positiveId(req.params.id);
+  if (!folderId) return res.status(400).json({ status: 'error', message: 'Invalid folder ID' });
+  try {
+    const [folder] = await getPool().execute('SELECT id FROM chat_folders WHERE id = ? AND user_id = ? LIMIT 1', [folderId, req.authUserId]);
+    if (!folder.length) return res.status(404).json({ status: 'error', message: 'Folder not found' });
+    const [rows] = await getPool().execute('SELECT cfi.conversation_id FROM chat_folder_items cfi JOIN conversation_members cm ON cm.conversation_id = cfi.conversation_id AND cm.user_id = ? AND cm.left_at IS NULL WHERE cfi.folder_id = ? ORDER BY cfi.created_at DESC LIMIT 500', [req.authUserId, folderId]);
+    return res.json({ status: 'ok', conversation_ids: rows.map(row => Number(row.conversation_id)) });
+  } catch (err) {
+    console.error('Folder item list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load folder items. Check migration 0008.' });
+  }
+});
+
 app.get('/api/v1', (req, res) => {
   res.json({
     name: 'Talviro Chat API',
