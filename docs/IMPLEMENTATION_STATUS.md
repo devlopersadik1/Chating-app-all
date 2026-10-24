@@ -70,3 +70,12 @@ Before production use, implement CSRF protections for cookie-authenticated state
 - Added an assistant panel with suggested prompts, message history for the current open panel, loading/error states, and a server-side provider route.
 - The AI provider is optional and not yet configured. Set `TALVIRO_AI_API_URL`, `TALVIRO_AI_API_KEY`, and `TALVIRO_AI_MODEL` in the frontend server environment; keep the key private and never use a `NEXT_PUBLIC_` variable for it.
 - No frontend production build or live provider request has been verified. Until the provider settings are configured, the assistant endpoint intentionally returns a setup message.
+
+
+## Latest milestone — channels, groups, and sponsored placements schema
+
+- Added migration `0005_channels_groups_sponsored_ads.sql` for public/private channels and groups, membership roles and join approval, posts and media metadata, views, reactions, comments, and separately moderated sponsored campaigns/impressions.
+- Sponsored campaigns are not automatically displayed: a future API must serve only approved campaigns within their active dates.
+- The Talviro AI floating assistant is now mounted on the home page only, not globally on every page.
+- This is a schema foundation only. Channel/group UI, API endpoints, admin ad review, targeting controls, billing, and analytics still need implementation.
+- Do not apply migration 0005 to the live cPanel database until the existing schema is inspected and a backup is verified.
