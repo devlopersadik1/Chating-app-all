@@ -95,6 +95,13 @@ public class LoginActivity extends Activity {
         message.setPadding(0, dp(12), 0, 0);
         root.addView(message);
 
+        Button forgotButton = new Button(this);
+        forgotButton.setText("Forgot password?");
+        forgotButton.setOnClickListener(v -> startActivity(new Intent(this, ForgotPasswordActivity.class)));
+        LinearLayout.LayoutParams forgotParams = new LinearLayout.LayoutParams(-1, -2);
+        forgotParams.topMargin = dp(4);
+        root.addView(forgotButton, forgotParams);
+
         TextView note = new TextView(this);
         note.setText("Use an account already registered on the Talviro Chat server.");
         note.setTextColor(Color.rgb(115, 123, 145));
