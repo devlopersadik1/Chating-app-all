@@ -114,3 +114,11 @@ Before production use, implement CSRF protections for cookie-authenticated state
 3. Implement moderation/approval and admin authorization before sponsored campaigns can be served.
 4. Add Android XML screens for login/session, channel discovery, channel/group creation, and post feeds.
 5. Review schema compatibility and verify backups before any cPanel migration. No deployment or live migration is authorized by this milestone.
+
+## Android Home screen milestone — four primary tabs
+
+- Replaced the basic home shortcuts with four primary navigation actions: **Chats, Status, Calls, Contacts**.
+- Chats is the initial selected panel; Chat Folders remains a separate action inside Chats. Contacts opens the existing ContactsActivity.
+- Status and Calls currently show honest placeholder copy. Story APIs/UI and LiveKit call history/flows are not yet connected.
+- Updated `MainActivity.java` and `activity_main.xml`; source files were fetched again after commit to confirm the expected tab IDs and click handlers exist.
+- Build status: **not verified**. No Android SDK/Gradle build or device test was run in this step. The configured API base URL remains a placeholder and login/session wiring remains incomplete.
