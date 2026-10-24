@@ -716,7 +716,7 @@ app.post('/api/v1/channels', requireAuth, async (req, res) => {
 app.get('/api/v1/channels/mine', requireAuth, async (req, res) => {
   try {
     const [rows] = await getPool().execute(
-      'SELECT c.id, c.owner_user_id, c.title, c.username, c.description, c.space_type, c.visibility, c.join_approval_required, c.posting_permission, c.member_count, c.status, cm.member_role, cm.membership_status FROM channel_members cm JOIN channels c ON c.id = cm.channel_id WHERE cm.user_id = ? AND cm.membership_status IN (\\'active\\', \\'pending\\') AND c.status = \\'active\\' ORDER BY c.updated_at DESC, c.id DESC LIMIT 100',
+      'SELECT c.id, c.owner_user_id, c.title, c.username, c.description, c.space_type, c.visibility, c.join_approval_required, c.posting_permission, c.member_count, c.status, cm.member_role, cm.membership_status FROM channel_members cm JOIN channels c ON c.id = cm.channel_id WHERE cm.user_id = ? AND cm.membership_status IN (\'active\', \'pending\') AND c.status = \'active\' ORDER BY c.updated_at DESC, c.id DESC LIMIT 100',
       [req.authUserId]
     );
     return res.json({ status: 'ok', channels: rows });
@@ -858,8 +858,8 @@ app.get('/api/v1', (req, res) => {
     name: 'Talviro Chat API',
     version: '0.3.0',
     status: 'text-chat-foundation',
-    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages', 'read-receipts'],
-    note: 'Polling-based refresh is currently used by the web client; WebSocket real-time events, media uploads, phone OTP, admin, FCM and LiveKit are planned for later phases.'
+    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages', 'read-receipts', 'channels-groups', 'channel-posts'],
+    note: 'Channel/group APIs currently support create, list, public discovery, public join with optional approval, and text posts. Media uploads, role-management APIs, moderation/admin review, phone OTP, FCM, LiveKit, and WebSocket real-time are not implemented yet.'
   });
 });
 
