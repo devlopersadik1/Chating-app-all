@@ -160,6 +160,94 @@ app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
   }
 });
 
+
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false });
+function getMailTransport() {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) throw new Error('SMTP is not configured');
+  return nodemailer.createTransport({
+    host,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true',
+    auth: { user, pass }
+  });
+}
+
+// Always return the same public response so the endpoint does not disclose registered emails.
+app.post('/api/v1/auth/forgot-password', passwordResetLimiter, async (req, res) => {
+  const generic = { status: 'ok', message: 'If that email belongs to an account, password reset instructions will be sent.' };
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 190) return res.json(generic);
+  try {
+    const [rows] = await getPool().execute(
+      "SELECT id, name, email FROM users WHERE email = ? AND account_status = 'active' LIMIT 1",
+      [email]
+    );
+    if (!rows[0]) return res.json(generic);
+    const user = rows[0];
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    await getPool().execute(
+      'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL',
+      [user.id]
+    );
+    await getPool().execute(
+      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE))',
+      [user.id, tokenHash]
+    );
+    const base = process.env.PASSWORD_RESET_URL;
+    if (!base || !/^https:\\/\\//i.test(base)) throw new Error('PASSWORD_RESET_URL must be an HTTPS URL');
+    const resetUrl = base + (base.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(rawToken);
+    const fromAddress = process.env.MAIL_FROM_ADDRESS || process.env.SMTP_USER;
+    const fromName = process.env.MAIL_FROM_NAME || 'Talviro Chat';
+    await getMailTransport().sendMail({
+      from: { name: fromName, address: fromAddress },
+      to: user.email,
+      subject: 'Reset your Talviro Chat password',
+      text: 'Hello ' + user.name + ',\\n\\nUse this link to reset your password within 30 minutes:\\n' + resetUrl + '\\n\\nIf you did not request this, ignore this email.',
+      html: '<p>Hello ' + String(user.name).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) + ',</p><p>Use the link below to reset your Talviro Chat password. It expires in 30 minutes.</p><p><a href="' + resetUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '">Reset password</a></p><p>If you did not request this, ignore this email.</p>'
+    });
+  } catch (err) {
+    console.error('Password reset email failed:', err.message);
+  }
+  return res.json(generic);
+});
+
+app.post('/api/v1/auth/reset-password', passwordResetLimiter, async (req, res) => {
+  const token = typeof req.body.token === 'string' ? req.body.token.trim() : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  if (!/^[a-f0-9]{64}$/i.test(token)) return res.status(400).json({ status: 'error', message: 'Reset link is invalid or expired.' });
+  if (password.length < 10 || password.length > 72) return res.status(400).json({ status: 'error', message: 'Password must be 10–72 characters.' });
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const db = await getPool().getConnection();
+  try {
+    await db.beginTransaction();
+    const [rows] = await db.execute(
+      'SELECT id, user_id FROM password_reset_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP() LIMIT 1 FOR UPDATE',
+      [tokenHash]
+    );
+    if (!rows[0]) {
+      await db.rollback();
+      return res.status(400).json({ status: 'error', message: 'Reset link is invalid or expired.' });
+    }
+    const passwordHash = await bcrypt.hash(password, 12);
+    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, rows[0].user_id]);
+    await db.execute('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL', [rows[0].user_id]);
+    await db.commit();
+    return res.json({ status: 'ok', message: 'Password has been reset. Please sign in again.' });
+  } catch (err) {
+    await db.rollback();
+    console.error('Password reset failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not reset password.' });
+  } finally {
+    db.release();
+  }
+});
+
 app.post('/api/v1/auth/login', authLimiter, async (req, res) => {
   const identifier = typeof req.body.identifier === 'string' ? req.body.identifier.trim().toLowerCase() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
