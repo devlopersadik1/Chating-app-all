@@ -511,7 +511,7 @@ app.post('/api/v1/contacts/match', requireAuth, async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Send 1 to 200 phone_numbers in E.164 format.' });
   }
   const numbers = [...new Set(raw.filter(v => typeof v === 'string').map(v => v.trim()))];
-  if (numbers.length !== raw.length || numbers.some(v => !/^\\+[1-9]\\d{6,14}$/.test(v))) {
+  if (numbers.length !== raw.length || numbers.some(v => !/^\+[1-9]\d{6,14}$/.test(v))) {
     return res.status(400).json({ status: 'error', message: 'All phone numbers must be valid E.164 strings.' });
   }
   try {
@@ -547,7 +547,7 @@ app.post('/api/v1/contacts', requireAuth, async (req, res) => {
   const note = typeof req.body.private_note === 'string' ? req.body.private_note.trim() : null;
   const targetId = req.body.contact_user_id == null ? null : positiveId(req.body.contact_user_id);
   if (!displayName || displayName.length > 120 || (note && note.length > 500) ||
-      (phone && !/^\\+[1-9]\\d{6,14}$/.test(phone)) ||
+      (phone && !/^\+[1-9]\d{6,14}$/.test(phone)) ||
       (req.body.contact_user_id != null && !targetId)) {
     return res.status(400).json({ status: 'error', message: 'Invalid contact fields. Use E.164 format for phone numbers.' });
   }
