@@ -6,6 +6,12 @@
         android:label="Talviro Chat"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity android:name=".ChatFoldersActivity" android:exported="false" />
         <activity android:name=".ContactsActivity" android:exported="false" />
     </application>
