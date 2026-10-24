@@ -502,6 +502,109 @@ app.post('/api/v1/conversations/:id/receipts/read', requireAuth, async (req, res
   }
 });
 
+
+// Contacts API: private contact-book entries only; no global phone-number lookup.
+app.get('/api/v1/contacts', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await getPool().execute(
+      "SELECT c.id, c.contact_user_id, c.display_name, c.phone_e164, c.private_note, c.is_favorite, c.created_at, u.username AS matched_username, u.profile_photo AS matched_profile_photo FROM user_contacts c LEFT JOIN users u ON u.id = c.contact_user_id AND u.account_status = 'active' WHERE c.owner_user_id = ? ORDER BY c.is_favorite DESC, c.display_name ASC LIMIT 500",
+      [req.authUserId]
+    );
+    return res.json({ status: 'ok', contacts: rows });
+  } catch (err) {
+    console.error('Contact list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load contacts. Check migration 0008.' });
+  }
+});
+
+app.post('/api/v1/contacts', requireAuth, async (req, res) => {
+  const displayName = typeof req.body.display_name === 'string' ? req.body.display_name.trim() : '';
+  const phone = typeof req.body.phone_e164 === 'string' && req.body.phone_e164.trim() ? req.body.phone_e164.trim() : null;
+  const note = typeof req.body.private_note === 'string' ? req.body.private_note.trim() : null;
+  const targetId = req.body.contact_user_id == null ? null : positiveId(req.body.contact_user_id);
+  if (!displayName || displayName.length > 120 || (note && note.length > 500) ||
+      (phone && !/^\\+[1-9]\\d{6,14}$/.test(phone)) ||
+      (req.body.contact_user_id != null && !targetId)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid contact fields. Use E.164 format for phone numbers.' });
+  }
+  try {
+    if (targetId) {
+      const [target] = await getPool().execute("SELECT id FROM users WHERE id = ? AND account_status = 'active' LIMIT 1", [targetId]);
+      if (!target.length || targetId === req.authUserId) return res.status(400).json({ status: 'error', message: 'Matched account unavailable.' });
+    }
+    const [created] = await getPool().execute(
+      'INSERT INTO user_contacts (owner_user_id, contact_user_id, display_name, phone_e164, private_note) VALUES (?, ?, ?, ?, ?)',
+      [req.authUserId, targetId, displayName, phone, note || null]
+    );
+    return res.status(201).json({ status: 'ok', contact: { id: created.insertId, contact_user_id: targetId, display_name: displayName, phone_e164: phone, private_note: note || null, is_favorite: 0 } });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ status: 'error', message: 'Contact account already saved.' });
+    console.error('Contact create failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not save contact. Check migration 0008.' });
+  }
+});
+
+app.get('/api/v1/chat-folders', requireAuth, async (req, res) => {
+  try {
+    const [folders] = await getPool().execute(
+      'SELECT id, title, icon, filter_json, sort_order, created_at FROM chat_folders WHERE user_id = ? ORDER BY sort_order, id LIMIT 100',
+      [req.authUserId]
+    );
+    return res.json({ status: 'ok', folders });
+  } catch (err) {
+    console.error('Folder list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load folders. Check migration 0008.' });
+  }
+});
+
+app.post('/api/v1/chat-folders', requireAuth, async (req, res) => {
+  const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+  const icon = typeof req.body.icon === 'string' ? req.body.icon.trim() : null;
+  if (!title || title.length > 60 || (icon && icon.length > 40)) return res.status(400).json({ status: 'error', message: 'Folder title is required (max 60 characters).' });
+  try {
+    const [count] = await getPool().execute('SELECT COUNT(*) AS total FROM chat_folders WHERE user_id = ?', [req.authUserId]);
+    if (Number(count[0].total) >= 20) return res.status(409).json({ status: 'error', message: 'Maximum 20 folders per account.' });
+    const [created] = await getPool().execute('INSERT INTO chat_folders (user_id, title, icon) VALUES (?, ?, ?)', [req.authUserId, title, icon || null]);
+    return res.status(201).json({ status: 'ok', folder: { id: created.insertId, title, icon: icon || null, sort_order: 0 } });
+  } catch (err) {
+    console.error('Folder create failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not create folder. Check migration 0008.' });
+  }
+});
+
+app.patch('/api/v1/conversations/:id/preferences', requireAuth, async (req, res) => {
+  const id = positiveId(req.params.id);
+  const keys = ['is_archived', 'is_pinned', 'is_muted', 'is_marked_unread'];
+  const values = {};
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+      if (typeof req.body[key] !== 'boolean') return res.status(400).json({ status: 'error', message: key + ' must be boolean' });
+      values[key] = req.body[key] ? 1 : 0;
+    }
+  }
+  if (!id || !Object.keys(values).length) return res.status(400).json({ status: 'error', message: 'Invalid conversation or preferences' });
+  try {
+    const [member] = await getPool().execute('SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL LIMIT 1', [id, req.authUserId]);
+    if (!member.length) return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
+    const [old] = await getPool().execute('SELECT user_id FROM conversation_user_preferences WHERE user_id = ? AND conversation_id = ? LIMIT 1', [req.authUserId, id]);
+    if (old.length) {
+      await getPool().execute(
+        'UPDATE conversation_user_preferences SET is_archived = COALESCE(?, is_archived), is_pinned = COALESCE(?, is_pinned), is_muted = COALESCE(?, is_muted), is_marked_unread = COALESCE(?, is_marked_unread) WHERE user_id = ? AND conversation_id = ?',
+        [values.is_archived ?? null, values.is_pinned ?? null, values.is_muted ?? null, values.is_marked_unread ?? null, req.authUserId, id]
+      );
+    } else {
+      await getPool().execute(
+        'INSERT INTO conversation_user_preferences (user_id, conversation_id, is_archived, is_pinned, is_muted, is_marked_unread) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.authUserId, id, values.is_archived ?? 0, values.is_pinned ?? 0, values.is_muted ?? 0, values.is_marked_unread ?? 0]
+      );
+    }
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Chat preferences failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not save preferences. Check migration 0008.' });
+  }
+});
+
 app.get('/api/v1', (req, res) => {
   res.json({
     name: 'Talviro Chat API',
