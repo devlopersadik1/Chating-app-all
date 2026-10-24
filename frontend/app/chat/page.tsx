@@ -10,7 +10,7 @@ type Conversation = {
   last_message_body?: string | null; last_message_type?: string | null;
   last_message_at?: string | null; members: Person[];
 };
-type ChatMessage = { id: number; conversation_id: number; sender_user_id: number; sender_name: string; sender_username: string; message_type: string; body: string | null; created_at: string };
+type ChatMessage = { id: number; conversation_id: number; sender_user_id: number; sender_name: string; sender_username: string; message_type: string; body: string | null; created_at: string; delivered_count?: number; read_count?: number };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...init, cache: "no-store", headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
@@ -58,6 +58,17 @@ export default function ChatPage() {
     if (selected) loadMessages(selected);
     else setMessages([]);
   }, [selected?.id, loadMessages]);
+
+  // Polling provides near-real-time updates until the WebSocket milestone is added.
+  useEffect(() => {
+    if (!selected) return;
+    const conversation = selected;
+    const timer = window.setInterval(() => {
+      loadMessages(conversation).catch(() => undefined);
+      loadConversations().catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [selected?.id, loadMessages, loadConversations]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -141,7 +152,7 @@ export default function ChatPage() {
               {loadingMessages && messages.length === 0 && <p className="empty-note">Loading messages…</p>}
               {!loadingMessages && messages.length === 0 && <div className="empty-chat message-empty"><MessageCircle size={23}/><b>Say hello 👋</b><span>Your conversation is ready.</span></div>}
               {messages.map(message => <div key={message.id} className={`chat-bubble-row ${message.sender_user_id === currentUserId ? "own-message" : ""}`}>
-                <div className="chat-bubble"><small>{message.sender_name}</small><p>{message.body}</p><time>{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></div>
+                <div className="chat-bubble"><small>{message.sender_name}</small><p>{message.body}</p><time>{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>{message.sender_user_id === currentUserId && <small className="message-receipt">{Number(message.read_count || 0) > 0 ? "Seen" : Number(message.delivered_count || 0) > 0 ? "Delivered" : "Sent"}</small>}</div>
               </div>)}
             </div>
             <form className="message-composer" onSubmit={sendMessage}><input value={draft} onChange={e => setDraft(e.target.value)} placeholder="Write a message…" maxLength={4000} aria-label="Message text"/><button type="submit" disabled={busy || !draft.trim()} aria-label="Send message"><Send size={17}/></button></form>
