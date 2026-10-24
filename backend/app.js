@@ -225,7 +225,7 @@ app.get('/api/v1/users/search', requireAuth, async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Search must be 2–60 characters' });
   }
   try {
-    const like = '%' + q.replace(/[\\%_]/g, '\\app.get('/api/v1', (req, res) => {') + '%';
+    const like = '%' + q + '%';
     const [rows] = await getPool().execute(
       "SELECT id, name, username, profile_photo, bio, is_online, last_seen FROM users WHERE account_status = 'active' AND id <> ? AND (name LIKE ? OR username LIKE ?) ORDER BY is_online DESC, name ASC LIMIT 25",
       [req.authUserId, like, like]
