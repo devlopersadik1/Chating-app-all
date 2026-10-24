@@ -30,6 +30,7 @@ cPanel → MySQL Databases থেকে database ও আলাদা database us
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
 - `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS`
 - `PASSWORD_RESET_URL` — আপনার আসল HTTPS reset page URL
+- `MEDIA_STORAGE_DIR` — `public_html`-এর বাইরে private writable folder, যেমন `/home/CPANEL_USERNAME/talviro-private/media`
 - `CORS_ORIGIN` — শুধুমাত্র আপনার অনুমোদিত origin; Android app-এর জন্য browser CORS সাধারণত প্রযোজ্য নয়
 
 কোনো secret GitHub-এ commit করবেন না। আগের কোনো secret প্রকাশিত হয়ে থাকলে সেটি rotate করুন।
@@ -40,10 +41,18 @@ cPanel Node.js App screen-এ application root হিসেবে backend direct
 ## 6. Database schema / migrations — সাবধান
 এখনো production database-এ কোনো migration চালানো হয়নি। আগে backup নিন এবং migration ফাইলগুলো পড়ে সঠিক ক্রম নিশ্চিত করুন। `database/schema.sql` ও migrations-এ overlap থাকতে পারে; সব SQL অন্ধভাবে একসাথে চালাবেন না। প্রথমে test database-এ schema যাচাই করুন। Owner-এর স্পষ্ট অনুমতি ছাড়া production migration চালাবেন না।
 
-## 7. Health check
+## 7. Media upload সেটআপ
+
+নতুন API route:
+- `POST /api/v1/conversations/:id/media` — authenticated multipart upload; field `media_type` (image/video/voice/file), optional `body` caption, এবং `file`। সর্বোচ্চ 20 MB। Metadata field-গুলো file field-এর আগে পাঠাতে হবে।
+- `GET /api/v1/media/:messageId` — authenticated conversation members-দের জন্য private media download। URL-টি একা public link নয়; Authorization Bearer token লাগবে।
+
+অনুমোদিত MIME ধরন সীমিত। APK, executable এবং অন্যান্য অজানা file type গ্রহণ করা হয় না। Hosting-এ `MEDIA_STORAGE_DIR` তৈরি করে Node.js process-কে লিখতে দেওয়ার আগে নিশ্চিত করুন যে directory public web root-এর বাইরে।
+
+## 8. Health check
 App চালু হলে hosting-এর নির্ধারিত HTTPS URL-এ `/health` খুলে দেখুন। Database check endpoint `/api/v1/health/db` কেবল hosting ও database configuration প্রস্তুত হওয়ার পর পরীক্ষা করুন। Health check সফল হওয়া login/message/upload সব ঠিক থাকার প্রমাণ নয়।
 
 ## বর্তমান সীমাবদ্ধতা
 - এই নির্দেশিকা কোনো upload/deploy করেনি।
 - Node.js support, environment variables, SMTP, database schema, API endpoints এবং Android app এখনো আপনার cPanel-এ end-to-end test করা হয়নি।
-- ছবি/ভিডিও/ফাইল upload, FCM notifications, LiveKit calling এবং admin diagnostics পুরোপুরি production-ready নয়।
+- Media API কোড যোগ হয়েছে, কিন্তু hosting permissions, MIME validation, Android multipart client এবং end-to-end tests এখনো যাচাই করা হয়নি। FCM notifications, LiveKit calling এবং admin diagnostics production-ready নয়।
