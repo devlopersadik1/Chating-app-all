@@ -88,3 +88,12 @@ Before production use, implement CSRF protections for cookie-authenticated state
 - Downloading to a device's public Downloads/Talviro Chat folder requires Android-side download and MediaStore/Storage Access Framework implementation; this database migration does not implement device downloads.
 - Admin control still requires authorization checks on every admin API, server-side audit logging, and an owner recovery policy. A schema table alone does not grant or enforce admin permissions.
 - These are schema foundations only. No migration was run against the live cPanel database. Inspect the existing schema and verify a backup before applying migrations.
+
+
+## Latest milestone — configurable monetization and subscriber-only features
+
+- Added migration `0007_monetization_subscriptions_entitlements.sql`: feature entitlements, plan-to-feature mapping, time-bounded user grants, paid channel subscription plans, subscriber-only post access, creator earnings ledger, payout requests, referral codes/attributions, and user ad preferences.
+- This creates a configurable foundation for subscription tiers: the server can later grant features only while a valid subscription/entitlement is active. It does not yet enforce these entitlements in API routes or process payments/payouts.
+- Monetization options represented in the schema include premium subscriptions, paid channel subscriptions, stars-related creator earnings, ad revenue accounting, and referral rewards. Actual provider APIs, fraud checks, tax/compliance rules, refunds, payout provider, and admin review workflows still need implementation.
+- No payment gateway has been selected or activated. Do not store payment secrets in the repository or trust client-side payment success. Verify signed provider webhooks server-side and make fulfillment idempotent.
+- No live database migration or deployment was performed. Apply only after schema compatibility review and a verified backup.
