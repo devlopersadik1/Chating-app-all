@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import FloatingAssistant from "../components/FloatingAssistant";
 
 export const metadata: Metadata = {
   title: "Talviro Chat — Conversations, closer",
@@ -18,7 +17,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}<FloatingAssistant /></body>
+      <body>{children}</body>
     </html>
   );
 }
