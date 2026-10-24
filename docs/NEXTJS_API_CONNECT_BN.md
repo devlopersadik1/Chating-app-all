@@ -45,20 +45,21 @@ export async function apiRequest<T>(
 ```
 
 ## 3. Login call-এর উদাহরণ
-API-এর register/login request shape আগে backend route-এর সঙ্গে মিলিয়ে নিন। Login UI-তে password কখনো URL বা console log-এ দেবেন না। Token সংরক্ষণের জন্য production-এ নিরাপদ server-side session/HttpOnly cookie পছন্দনীয়; browser localStorage-এ দীর্ঘমেয়াদি bearer token রাখলে XSS ঝুঁকি থাকে।
+API-এর register/login request shape আগে backend route-এর সঙ্গে মিলিয়ে নিন। এই backend-এ login body-তে `identifier` (email অথবা username) ও `password` লাগে। Login UI-তে password কখনো URL বা console log-এ দেবেন না। Token সংরক্ষণের জন্য production-এ নিরাপদ server-side session/HttpOnly cookie পছন্দনীয়; browser localStorage-এ দীর্ঘমেয়াদি bearer token রাখলে XSS ঝুঁকি থাকে।
 
 ```ts
 type LoginResult = {
   status: "ok";
+  message: string;
   token: string;
-  user: { id: number; username: string; name: string };
+  user: { id: number; username: string; name: string; email: string };
 };
 
 const result = await apiRequest<LoginResult>(
   "/auth/login",
   {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier: emailOrUsername, password }),
   }
 );
 ```
