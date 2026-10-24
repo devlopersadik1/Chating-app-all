@@ -442,10 +442,10 @@ app.post('/api/v1/conversations/:id/messages', requireAuth, async (req, res) => 
 app.get('/api/v1', (req, res) => {
   res.json({
     name: 'Talviro Chat API',
-    version: '0.2.0',
-    status: 'authentication-foundation',
-    modules: ['health', 'database-health', 'email-password-auth'],
-    note: 'Phone OTP, chat, admin, reseller, FCM and LiveKit modules are planned for later phases.'
+    version: '0.3.0',
+    status: 'text-chat-foundation',
+    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages'],
+    note: 'Real-time events, media uploads, phone OTP, admin, FCM and LiveKit modules are planned for later phases.'
   });
 });
 
