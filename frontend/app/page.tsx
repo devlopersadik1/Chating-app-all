@@ -1,3 +1,4 @@
+import FloatingAssistant from "../components/FloatingAssistant";
 import {
   ArrowUpRight, AudioLines, CheckCheck, ChevronRight, CircleHelp,
   LockKeyhole, MessageCircle, Mic, MoreHorizontal, Paperclip, Phone,
@@ -60,5 +61,6 @@ export default function HomePage() {
       <section className="closing"><div className="closing-icon"><CircleHelp size={21}/></div><div><h2>A calmer home for your conversations.</h2><p>Talviro is being built step by step, with thoughtful design and secure foundations.</p></div><a href="#top" className="button-primary">Back to top <ArrowUpRight size={16}/></a></section>
       <footer><a className="brand footer-brand" href="#"><span className="brand-mark"><MessageCircle size={17}/></span><span>talviro<span className="brand-dot">.</span></span></a><span>Thoughtfully made for meaningful connection.</span><span>© 2026 Talviro Chat · Preview build</span></footer>
     </main>
+    <FloatingAssistant />
   );
 }
