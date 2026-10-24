@@ -145,13 +145,13 @@ public class ChatActivity extends Activity {
             if (!"text".equals(type) && body.trim().isEmpty()) body = "[" + type + "]";
             boolean mine = currentUserId > 0 && item.optLong("sender_user_id", -1) == currentUserId;
             TextView bubble = new TextView(this);
-            String text = sender + "\\n" + body;
+            String text = sender + "\n" + body;
             if (mine) {
                 int readCount = item.optInt("read_count", 0);
                 int deliveredCount = item.optInt("delivered_count", 0);
                 String receipt = readCount > 0 ? "✓✓ Read (" + readCount + ")" :
                     deliveredCount > 0 ? "✓✓ Delivered (" + deliveredCount + ")" : "✓ Sent";
-                text += "\\n" + receipt;
+                text += "\n" + receipt;
             }
             bubble.setText(text);
             bubble.setTextColor(0xFF25243A);
