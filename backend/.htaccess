@@ -1,0 +1,7 @@
+# Do not serve configuration or dependency files directly.
+<IfModule mod_authz_core.c>
+  <FilesMatch "^(\.env|package(-lock)?\.json)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+Options -Indexes
