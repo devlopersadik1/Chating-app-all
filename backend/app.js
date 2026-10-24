@@ -204,6 +204,241 @@ app.get('/api/v1/auth/me', requireAuth, async (req, res) => {
   }
 });
 
+
+function positiveId(value) {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+async function isConversationMember(db, conversationId, userId) {
+  const [rows] = await db.execute(
+    'SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL LIMIT 1',
+    [conversationId, userId]
+  );
+  return rows.length > 0;
+}
+
+// Search users by public name/username. Never return email, phone, or private account fields.
+app.get('/api/v1/users/search', requireAuth, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (q.length < 2 || q.length > 60) {
+    return res.status(400).json({ status: 'error', message: 'Search must be 2–60 characters' });
+  }
+  try {
+    const like = '%' + q.replace(/[\\%_]/g, '\\app.get('/api/v1', (req, res) => {') + '%';
+    const [rows] = await getPool().execute(
+      "SELECT id, name, username, profile_photo, bio, is_online, last_seen FROM users WHERE account_status = 'active' AND id <> ? AND (name LIKE ? OR username LIKE ?) ORDER BY is_online DESC, name ASC LIMIT 25",
+      [req.authUserId, like, like]
+    );
+    return res.json({ status: 'ok', users: rows.map(row => ({ ...row, is_online: Boolean(row.is_online) })) });
+  } catch (err) {
+    console.error('User search failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not search users' });
+  }
+});
+
+// List conversations for the authenticated member.
+app.get('/api/v1/conversations', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await getPool().execute(
+      `SELECT c.id, c.conversation_type, c.title, c.updated_at,
+              m.id AS last_message_id, m.body AS last_message_body, m.message_type AS last_message_type,
+              m.sender_user_id AS last_sender_user_id, m.created_at AS last_message_at,
+              (SELECT COUNT(*) FROM conversation_members cm2 WHERE cm2.conversation_id = c.id AND cm2.left_at IS NULL) AS member_count
+       FROM conversation_members mine
+       JOIN conversations c ON c.id = mine.conversation_id
+       LEFT JOIN messages m ON m.id = c.last_message_id AND m.deleted_at IS NULL
+       WHERE mine.user_id = ? AND mine.left_at IS NULL
+       ORDER BY COALESCE(m.created_at, c.updated_at) DESC, c.id DESC LIMIT 100`,
+      [req.authUserId]
+    );
+    const ids = rows.map(row => row.id);
+    let people = [];
+    if (ids.length) {
+      const placeholders = ids.map(() => '?').join(',');
+      const [members] = await getPool().execute(
+        `SELECT cm.conversation_id, u.id, u.name, u.username, u.profile_photo, u.is_online
+         FROM conversation_members cm JOIN users u ON u.id = cm.user_id
+         WHERE cm.conversation_id IN (${placeholders}) AND cm.left_at IS NULL AND u.id <> ? ORDER BY u.name ASC`,
+        [...ids, req.authUserId]
+      );
+      people = members;
+    }
+    const byConversation = new Map();
+    for (const person of people) {
+      if (!byConversation.has(person.conversation_id)) byConversation.set(person.conversation_id, []);
+      byConversation.get(person.conversation_id).push({ ...person, is_online: Boolean(person.is_online) });
+    }
+    return res.json({ status: 'ok', conversations: rows.map(row => ({ ...row, members: byConversation.get(row.id) || [] })) });
+  } catch (err) {
+    console.error('Conversation list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load conversations' });
+  }
+});
+
+// Create a direct or group conversation. Members must be active users.
+app.post('/api/v1/conversations', requireAuth, async (req, res) => {
+  const type = req.body.conversation_type === 'group' ? 'group' : 'direct';
+  const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+  const rawMembers = Array.isArray(req.body.member_ids) ? req.body.member_ids : [];
+  const memberIds = [...new Set(rawMembers.map(positiveId).filter(Boolean).filter(id => id !== req.authUserId))];
+  if (rawMembers.length > 50 || memberIds.length !== rawMembers.filter(id => positiveId(id) && Number(id) !== req.authUserId).length) {
+    return res.status(400).json({ status: 'error', message: 'Invalid member list' });
+  }
+  if (type === 'direct' && memberIds.length !== 1) {
+    return res.status(400).json({ status: 'error', message: 'A direct conversation requires exactly one other user' });
+  }
+  if (type === 'group' && (memberIds.length < 2 || memberIds.length > 49)) {
+    return res.status(400).json({ status: 'error', message: 'A group requires 2–49 other members' });
+  }
+  if (type === 'group' && (title.length < 2 || title.length > 120)) {
+    return res.status(400).json({ status: 'error', message: 'Group title must be 2–120 characters' });
+  }
+
+  const db = await getPool().getConnection();
+  try {
+    const [users] = await db.execute(
+      `SELECT id FROM users WHERE account_status = 'active' AND id IN (${memberIds.map(() => '?').join(',')})`,
+      memberIds
+    );
+    if (users.length !== memberIds.length) {
+      return res.status(400).json({ status: 'error', message: 'One or more users do not exist or are inactive' });
+    }
+
+    if (type === 'direct') {
+      const otherId = memberIds[0];
+      const [blocked] = await db.execute(
+        'SELECT 1 FROM user_blocks WHERE (blocker_user_id = ? AND blocked_user_id = ?) OR (blocker_user_id = ? AND blocked_user_id = ?) LIMIT 1',
+        [req.authUserId, otherId, otherId, req.authUserId]
+      );
+      if (blocked.length) return res.status(403).json({ status: 'error', message: 'This conversation is unavailable' });
+      const [existing] = await db.execute(
+        `SELECT c.id FROM conversations c
+         JOIN conversation_members a ON a.conversation_id = c.id AND a.user_id = ? AND a.left_at IS NULL
+         JOIN conversation_members b ON b.conversation_id = c.id AND b.user_id = ? AND b.left_at IS NULL
+         WHERE c.conversation_type = 'direct'
+           AND (SELECT COUNT(*) FROM conversation_members x WHERE x.conversation_id = c.id AND x.left_at IS NULL) = 2
+         LIMIT 1`,
+        [req.authUserId, otherId]
+      );
+      if (existing[0]) return res.json({ status: 'ok', conversation_id: existing[0].id, existing: true });
+    }
+
+    await db.beginTransaction();
+    const [created] = await db.execute(
+      'INSERT INTO conversations (conversation_type, title, created_by) VALUES (?, ?, ?)',
+      [type, type === 'group' ? title : null, req.authUserId]
+    );
+    const conversationId = created.insertId;
+    const values = [conversationId, req.authUserId, 'owner'];
+    await db.execute(
+      'INSERT INTO conversation_members (conversation_id, user_id, member_role) VALUES (?, ?, ?)',
+      values
+    );
+    for (const memberId of memberIds) {
+      await db.execute(
+        'INSERT INTO conversation_members (conversation_id, user_id, member_role) VALUES (?, ?, ?)',
+        [conversationId, memberId, type === 'group' ? 'member' : 'member']
+      );
+    }
+    await db.commit();
+    return res.status(201).json({ status: 'ok', conversation_id: conversationId, existing: false });
+  } catch (err) {
+    await db.rollback();
+    console.error('Conversation creation failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not create conversation' });
+  } finally {
+    db.release();
+  }
+});
+
+// Fetch the latest messages. before_id supports simple backwards pagination.
+app.get('/api/v1/conversations/:id/messages', requireAuth, async (req, res) => {
+  const conversationId = positiveId(req.params.id);
+  const beforeId = req.query.before_id === undefined ? null : positiveId(req.query.before_id);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+  if (!conversationId || (req.query.before_id !== undefined && !beforeId)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid conversation or pagination ID' });
+  }
+  try {
+    if (!(await isConversationMember(getPool(), conversationId, req.authUserId))) {
+      return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
+    }
+    const params = [conversationId];
+    let cursor = '';
+    if (beforeId) { cursor = ' AND m.id < ?'; params.push(beforeId); }
+    params.push(limit);
+    const [rows] = await getPool().execute(
+      `SELECT m.id, m.conversation_id, m.sender_user_id, u.name AS sender_name, u.username AS sender_username,
+              m.message_type, m.body, m.media_path, m.media_mime, m.media_size_bytes,
+              m.reply_to_message_id, m.created_at, m.edited_at
+       FROM messages m JOIN users u ON u.id = m.sender_user_id
+       WHERE m.conversation_id = ? AND m.deleted_at IS NULL ${cursor}
+       ORDER BY m.id DESC LIMIT ?`,
+      params
+    );
+    return res.json({ status: 'ok', messages: rows.reverse() });
+  } catch (err) {
+    console.error('Message list failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load messages' });
+  }
+});
+
+// Send a text message. Media upload endpoints will be added separately with file validation.
+app.post('/api/v1/conversations/:id/messages', requireAuth, async (req, res) => {
+  const conversationId = positiveId(req.params.id);
+  const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+  const replyTo = req.body.reply_to_message_id == null ? null : positiveId(req.body.reply_to_message_id);
+  if (!conversationId || !body || body.length > 4000) {
+    return res.status(400).json({ status: 'error', message: 'Message must be 1–4000 characters' });
+  }
+  if (req.body.message_type && req.body.message_type !== 'text') {
+    return res.status(400).json({ status: 'error', message: 'Only text messages are supported currently' });
+  }
+  if (req.body.reply_to_message_id != null && !replyTo) {
+    return res.status(400).json({ status: 'error', message: 'Invalid reply message ID' });
+  }
+  const db = await getPool().getConnection();
+  try {
+    await db.beginTransaction();
+    if (!(await isConversationMember(db, conversationId, req.authUserId))) {
+      await db.rollback();
+      return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
+    }
+    if (replyTo) {
+      const [parent] = await db.execute(
+        'SELECT id FROM messages WHERE id = ? AND conversation_id = ? AND deleted_at IS NULL LIMIT 1',
+        [replyTo, conversationId]
+      );
+      if (!parent.length) {
+        await db.rollback();
+        return res.status(400).json({ status: 'error', message: 'Reply target not found in this conversation' });
+      }
+    }
+    const [created] = await db.execute(
+      "INSERT INTO messages (conversation_id, sender_user_id, message_type, body, reply_to_message_id) VALUES (?, ?, 'text', ?, ?)",
+      [conversationId, req.authUserId, body, replyTo]
+    );
+    await db.execute('UPDATE conversations SET last_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [created.insertId, conversationId]);
+    await db.execute(
+      'INSERT INTO message_receipts (message_id, user_id) SELECT ?, cm.user_id FROM conversation_members cm WHERE cm.conversation_id = ? AND cm.user_id <> ? AND cm.left_at IS NULL',
+      [created.insertId, conversationId, req.authUserId]
+    );
+    const [rows] = await db.execute(
+      'SELECT m.id, m.conversation_id, m.sender_user_id, u.name AS sender_name, u.username AS sender_username, m.message_type, m.body, m.reply_to_message_id, m.created_at FROM messages m JOIN users u ON u.id = m.sender_user_id WHERE m.id = ? LIMIT 1',
+      [created.insertId]
+    );
+    await db.commit();
+    return res.status(201).json({ status: 'ok', message: rows[0] });
+  } catch (err) {
+    await db.rollback();
+    console.error('Message send failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not send message' });
+  } finally {
+    db.release();
+  }
+});
+
 app.get('/api/v1', (req, res) => {
   res.json({
     name: 'Talviro Chat API',
