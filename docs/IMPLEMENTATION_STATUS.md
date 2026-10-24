@@ -97,3 +97,20 @@ Before production use, implement CSRF protections for cookie-authenticated state
 - Monetization options represented in the schema include premium subscriptions, paid channel subscriptions, stars-related creator earnings, ad revenue accounting, and referral rewards. Actual provider APIs, fraud checks, tax/compliance rules, refunds, payout provider, and admin review workflows still need implementation.
 - No payment gateway has been selected or activated. Do not store payment secrets in the repository or trust client-side payment success. Verify signed provider webhooks server-side and make fulfillment idempotent.
 - No live database migration or deployment was performed. Apply only after schema compatibility review and a verified backup.
+
+## Latest milestone — authenticated channel/group API foundation
+
+- Added authenticated endpoints to create a channel or group, list the signed-in user's spaces, discover public spaces, join public spaces (including pending membership when approval is required), list posts for active members, and create text-only posts.
+- Space creation creates the owner membership in a transaction. Channel posting and admin-only group posting are restricted by membership role. Private spaces are not shown in public discovery and cannot be joined through the public join endpoint.
+- Username format is validated and duplicate public usernames return a conflict response. API queries use bound parameters for user-supplied values.
+- This milestone depends on migration `0005_channels_groups_sponsored_ads.sql`; it has **not** been run on cPanel. No live database/API test has been performed, and the new JavaScript has not yet been confirmed by CI.
+- Still missing: membership approval/rejection and role-management endpoints, leave/ban/remove-member flows, channel/group native Android UI, public post reading without joining, post edits/deletes/reactions/comments/views, media uploads, admin sponsored-campaign review/delivery, automated route tests, and a confirmed build result.
+- The Android native starter remains a separate incomplete foundation: the API URL is still a placeholder, login/session wiring is missing, and an APK build has not been verified.
+
+## Next checks before production
+
+1. Confirm GitHub Actions syntax/build checks for the latest commit and fix any failures.
+2. Add automated tests for access control and channel/group membership transitions.
+3. Implement moderation/approval and admin authorization before sponsored campaigns can be served.
+4. Add Android XML screens for login/session, channel discovery, channel/group creation, and post feeds.
+5. Review schema compatibility and verify backups before any cPanel migration. No deployment or live migration is authorized by this milestone.
