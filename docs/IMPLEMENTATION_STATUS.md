@@ -79,3 +79,12 @@ Before production use, implement CSRF protections for cookie-authenticated state
 - The Talviro AI floating assistant is now mounted on the home page only, not globally on every page.
 - This is a schema foundation only. Channel/group UI, API endpoints, admin ad review, targeting controls, billing, and analytics still need implementation.
 - Do not apply migration 0005 to the live cPanel database until the existing schema is inspected and a backup is verified.
+
+
+## Latest milestone — profile, stories, stars, premium, payments, and storage schema
+
+- Added migration `0006_profiles_stories_stars_premium_payments_storage.sql` for profile/privacy settings, expiring stories and views, saved messages, a stars ledger, premium plans/subscriptions, payment transactions and idempotent webhook event records, a user media library, and admin audit events.
+- Payment schema is provider-neutral. No payment gateway is configured and no payment can be accepted until server-side provider integration, signed webhook verification, idempotent processing, and refund/error handling are implemented.
+- Downloading to a device's public Downloads/Talviro Chat folder requires Android-side download and MediaStore/Storage Access Framework implementation; this database migration does not implement device downloads.
+- Admin control still requires authorization checks on every admin API, server-side audit logging, and an owner recovery policy. A schema table alone does not grant or enforce admin permissions.
+- These are schema foundations only. No migration was run against the live cPanel database. Inspect the existing schema and verify a backup before applying migrations.
