@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090d18">
+<title>Talviro Studio — Theme Manager</title>
+<style>
+:root{color-scheme:dark;--bg:#080c16;--panel:#101727;--panel2:#151f33;--line:#26324a;--text:#f4f7ff;--muted:#97a5bf;--accent:#8b7cff;--accent2:#53d6c5;--radius:20px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 12% 0%,#27204a 0,transparent 35%),radial-gradient(ellipse at 100% 10%,#102f42 0,transparent 30%),var(--bg);color:var(--text);min-height:100vh}button,input,select{font:inherit}button{cursor:pointer}.shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh}.side{padding:28px 18px;border-right:1px solid #ffffff12;background:#080d19b8}.brand{display:flex;gap:11px;align-items:center;padding:0 8px 28px}.logo{width:39px;height:39px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:900;color:#08111c;box-shadow:0 8px 30px #8b7cff45}.brand b{letter-spacing:.2px}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.navlabel{color:#65738e;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;font-weight:800;padding:18px 12px 9px}.nav{display:flex;gap:12px;align-items:center;color:#aab6cb;padding:12px;border-radius:12px;margin:3px 0;font-size:13px}.nav.active{background:linear-gradient(100deg,#8b7cff2c,#53d6c511);color:#fff;border:1px solid #8b7cff40}.nav span{width:18px;text-align:center}.sidefoot{position:sticky;top:calc(100vh - 105px);margin-top:55px;padding:14px;border:1px solid var(--line);border-radius:15px;color:var(--muted);font-size:11px;line-height:1.6}.main{padding:30px clamp(18px,4vw,52px) 60px;max-width:1500px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:30px}.eyebrow{color:var(--accent2);font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase}.top h1{font-size:clamp(26px,4vw,38px);letter-spacing:-1.2px;margin:8px 0}.sub{color:var(--muted);font-size:13px;line-height:1.7;max-width:650px}.topright{display:flex;align-items:center;gap:10px}.avatar{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#26334d;border:1px solid #ffffff20;font-weight:800}.btn{border:1px solid var(--line);border-radius:12px;background:#182238;color:var(--text);padding:11px 15px;font-weight:700;font-size:12px}.btn.primary{background:linear-gradient(135deg,#9586ff,#6d60e8);border-color:transparent;box-shadow:0 7px 22px #7667f333}.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}.layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(290px,.75fr);gap:20px;align-items:start}.panel{border:1px solid #ffffff12;background:linear-gradient(150deg,#121a2aeb,#0e1523eb);border-radius:var(--radius);padding:22px;box-shadow:0 20px 60px #0002}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.panel h2{font-size:15px;margin:0;letter-spacing:-.2px}.muted{color:var(--muted);font-size:11px}.tag{border:1px solid #53d6c53b;color:var(--accent2);background:#53d6c511;padding:6px 9px;border-radius:99px;font-size:10px;font-weight:800}.themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.theme{border:1px solid var(--line);border-radius:16px;padding:10px;background:#0c1320;min-width:0;transition:.18s}.theme.selected{border-color:var(--accent);box-shadow:0 0 0 2px #8b7cff24}.swatches{height:98px;border-radius:11px;padding:12px;display:flex;gap:7px;align-items:flex-end;overflow:hidden}.swatches i{display:block;height:45px;width:24%;border-radius:7px;background:#ffffff22;border:1px solid #ffffff28}.swatches i:nth-child(2){height:61px}.swatches i:nth-child(3){height:35px}.swatches i:nth-child(4){height:51px}.themefoot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px 2px}.themefoot b{font-size:12px}.themefoot small{display:block;color:var(--muted);font-size:10px;margin-top:4px}.tiny{background:transparent;border:1px solid var(--line);border-radius:9px;color:#dce4f4;padding:7px 9px;font-size:10px}.editor{margin-top:18px}.field{display:block;margin:15px 0}.field span{display:block;color:#b6c1d5;font-size:11px;margin-bottom:8px}.field input[type=text],.field select{width:100%;padding:11px 12px;border:1px solid var(--line);background:#0a1120;color:var(--text);border-radius:11px}.colors{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.colorfield{border:1px solid var(--line);border-radius:12px;padding:9px;background:#0b1220}.colorfield label{font-size:10px;color:var(--muted);display:block;margin-bottom:8px}.colorfield input{width:100%;height:34px;border:0;background:transparent;padding:0}.upload{border:1px dashed #52617e;border-radius:13px;padding:15px;text-align:center;background:#0b1220;color:var(--muted);font-size:11px}.upload input{display:block;width:100%;margin-top:10px;font-size:11px}.preview{overflow:hidden;border-radius:18px;border:1px solid #ffffff22;background:#0a1020}.previewtop{padding:14px 15px;border-bottom:1px solid #ffffff12;display:flex;align-items:center;justify-content:space-between;font-size:12px}.previewbody{padding:14px;display:grid;grid-template-columns:95px 1fr;gap:12px;min-height:260px}.previewnav{border-radius:12px;background:#ffffff08;padding:11px 8px}.previewnav div{height:7px;background:#ffffff18;border-radius:5px;margin:9px 0}.previewnav div:first-child{background:var(--accent);width:80%}.chatbox{display:flex;flex-direction:column;gap:10px}.bubble{padding:10px 12px;border-radius:13px;font-size:10px;line-height:1.6;max-width:90%;background:#ffffff0e;color:#e7edfa}.bubble.mine{align-self:flex-end;background:var(--accent);color:#fff}.previewcompose{margin-top:auto;border:1px solid #ffffff18;border-radius:12px;padding:10px;color:#7e8ba5;font-size:10px}.previewfooter{padding:11px 14px;border-top:1px solid #ffffff12;color:var(--muted);font-size:10px;display:flex;justify-content:space-between}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.notice{font-size:11px;color:#e4d6a6;line-height:1.7;background:#e7b94c0d;border:1px solid #e7b94c2c;border-radius:12px;padding:12px;margin-top:16px}.statusrow{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #ffffff0b;padding:12px 0;font-size:11px;color:var(--muted)}.statusrow:last-child{border:0}.statusrow b{color:#e8eefb;font-weight:600}.bottomnote{margin-top:22px;color:#65738e;font-size:10px;text-align:center}
+@media(max-width:950px){.shell{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid #ffffff12;padding:12px 15px;display:flex;align-items:center;gap:10px;overflow:auto}.brand{padding:0 7px;min-width:max-content}.navlabel,.sidefoot{display:none}.nav{min-width:max-content;margin:0;padding:10px}.main{padding-top:25px}.layout{grid-template-columns:1fr}.top{align-items:flex-start}.topright .btn{display:none}}
+@media(max-width:480px){.main{padding-left:13px;padding-right:13px}.panel{padding:15px}.themes{gap:9px}.swatches{height:75px}.themefoot{align-items:flex-start}.top h1{font-size:27px}.colors{gap:6px}.colorfield{padding:7px}.previewbody{grid-template-columns:65px 1fr;padding:9px}.previewnav{padding:7px}.topright{gap:6px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+  <div class="brand"><div class="logo">T</div><div><b>talviro</b><small>CONTROL STUDIO</small></div></div>
+  <div class="nav"><span>◈</span> Overview</div><div class="nav"><span>♙</span> Users & roles</div><div class="nav"><span>▤</span> Conversations</div><div class="nav active"><span>◐</span> Theme studio</div><div class="nav"><span>♧</span> Integrations</div><div class="nav"><span>⚙</span> Settings</div>
+</aside>
+<main class="main">
+  <header class="top"><div><div class="eyebrow">Appearance / Design system</div><h1>Theme Studio</h1><div class="sub">Shape the Talviro experience. Tune colors, preview the chat interface, and prepare a consistent visual system for every screen.</div></div><div class="topright"><button class="btn" id="reset">Reset preview</button><div class="avatar">A</div></div></header>
+  <div class="layout">
+    <section>
+      <div class="panel"><div class="panelhead"><div><h2>Theme library</h2><div class="muted" style="margin-top:6px">Choose a starting point</div></div><span class="tag">4 presets</span></div>
+        <div class="themes" id="themes">
+          <div class="theme selected" data-theme="midnight" tabindex="0" role="button" aria-label="Select Midnight theme"><div class="swatches" style="background:linear-gradient(135deg,#101727,#242348)"><i></i><i style="background:#8b7cff"></i><i style="background:#53d6c5"></i><i></i></div><div class="themefoot"><div><b>Midnight Aura</b><small>Dark · Signature</small></div><span class="tag">Active</span></div></div>
+          <div class="theme" data-theme="ocean" tabindex="0" role="button" aria-label="Select Ocean theme"><div class="swatches" style="background:linear-gradient(135deg,#071b2c,#123d52)"><i></i><i style="background:#36b9d6"></i><i style="background:#7de5c4"></i><i></i></div><div class="themefoot"><div><b>Deep Ocean</b><small>Dark · Calm</small></div><button class="tiny">Preview</button></div></div>
+          <div class="theme" data-theme="orchid" tabindex="0" role="button" aria-label="Select Orchid theme"><div class="swatches" style="background:linear-gradient(135deg,#24132f,#4b2452)"><i></i><i style="background:#e28bff"></i><i style="background:#ffb8d0"></i><i></i></div><div class="themefoot"><div><b>Orchid Bloom</b><small>Dark · Expressive</small></div><button class="tiny">Preview</button></div></div>
+          <div class="theme" data-theme="light" tabindex="0" role="button" aria-label="Select Pearl light theme"><div class="swatches" style="background:linear-gradient(135deg,#edf2fa,#d8e2f1)"><i style="background:#fff"></i><i style="background:#7162e8"></i><i style="background:#2a9c91"></i><i style="background:#fff"></i></div><div class="themefoot"><div><b>Pearl Light</b><small>Light · Minimal</small></div><button class="tiny">Preview</button></div></div>
+        </div>
+      </div>
+      <div class="panel editor"><div class="panelhead"><div><h2>Customize selected theme</h2><div class="muted" style="margin-top:6px">Adjust the live preview below</div></div><span class="tag">Local preview</span></div>
+        <label class="field"><span>Theme name</span><input id="themeName" type="text" value="Midnight Aura" maxlength="50"></label>
+        <div class="colors">
+          <div class="colorfield"><label for="accent">Accent</label><input id="accent" type="color" value="#8b7cff"></div>
+          <div class="colorfield"><label for="accent2">Secondary</label><input id="accent2" type="color" value="#53d6c5"></div>
+          <div class="colorfield"><label for="surface">Surface</label><input id="surface" type="color" value="#101727"></div>
+        </div>
+        <label class="field"><span>Appearance mode</span><select id="mode"><option value="dark">Dark</option><option value="light">Light</option><option value="system">System default (previewed as dark)</option></select></label>
+        <div class="field"><span>Optional wallpaper image</span><div class="upload">Choose an image to preview as a background<input type="file" id="wallpaper" accept="image/png,image/jpeg,image/webp"></div></div>
+        <div class="actions"><button class="btn primary" id="apply">Apply to preview</button><button class="btn" id="export">Export theme JSON</button></div>
+        <div class="notice">Prototype note: this page currently previews settings in your browser only. Saving/publishing themes, uploading assets to the server, and syncing user preferences require authenticated backend APIs and file-storage validation.</div>
+      </div>
+    </section>
+    <section>
+      <div class="panel"><div class="panelhead"><div><h2>Live interface preview</h2><div class="muted" style="margin-top:6px">Sample conversation · not real messages</div></div><span class="tag">Live</span></div>
+        <div class="preview" id="preview"><div class="previewtop"><span>◉ &nbsp; Talviro Chat</span><span style="color:var(--accent2)">● Online</span></div><div class="previewbody"><div class="previewnav"><div></div><div style="width:70%"></div><div style="width:90%"></div><div style="width:60%"></div><div style="width:76%"></div></div><div class="chatbox"><div class="muted">Today, 10:42 AM</div><div class="bubble">Hey! The new design looks great ✨</div><div class="bubble mine">Thanks! This is the theme preview.</div><div class="bubble">Colors feel calm and premium.</div><div class="previewcompose">Message… &nbsp; ＋</div></div></div><div class="previewfooter"><span>🔒 Private chat</span><span>Sample UI</span></div></div>
+        <div class="actions"><button class="btn" id="modeToggle">Toggle light / dark</button><button class="btn" id="copyColors">Copy palette</button></div>
+      </div>
+      <div class="panel" style="margin-top:18px"><div class="panelhead"><h2>Publishing checklist</h2><span class="tag">Design setup</span></div><div class="statusrow"><span>Color palette</span><b>Preview available</b></div><div class="statusrow"><span>Wallpaper selection</span><b>Browser preview</b></div><div class="statusrow"><span>Admin permission checks</span><b>Backend required</b></div><div class="statusrow"><span>Save & publish</span><b>Not connected yet</b></div><div class="statusrow"><span>Sync user preferences</span><b>Backend required</b></div></div>
+    </section>
+  </div>
+  <div class="bottomnote">TALVIRO CHAT · DESIGN SYSTEM WORKSPACE · PREVIEW BUILD</div>
+</main>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const root=document.documentElement;
+const presets={
+ midnight:{name:'Midnight Aura',accent:'#8b7cff',accent2:'#53d6c5',surface:'#101727',mode:'dark'},
+ ocean:{name:'Deep Ocean',accent:'#36b9d6',accent2:'#7de5c4',surface:'#0d2433',mode:'dark'},
+ orchid:{name:'Orchid Bloom',accent:'#e28bff',accent2:'#ffb8d0',surface:'#24172f',mode:'dark'},
+ light:{name:'Pearl Light',accent:'#7162e8',accent2:'#2a9c91',surface:'#f0f4fb',mode:'light'}
+};
+let active='midnight',wallpaperUrl='';
+function apply(p){
+  $('themeName').value=p.name;$('accent').value=p.accent;$('accent2').value=p.accent2;$('surface').value=p.surface;$('mode').value=p.mode;
+  root.style.setProperty('--accent',p.accent);root.style.setProperty('--accent2',p.accent2);root.style.setProperty('--panel',p.surface);
+  const light=p.mode==='light';root.style.setProperty('--text',light?'#172033':'#f4f7ff');root.style.setProperty('--muted',light?'#536078':'#97a5bf');
+  $('preview').style.background=light?'#f0f4fb':'#0a1020';$('preview').style.color=light?'#172033':'#f4f7ff';
+  $('preview').style.backgroundImage=wallpaperUrl?'linear-gradient(#0a1020aa,#0a1020aa),url("'+wallpaperUrl+'")':'';
+  document.querySelectorAll('.theme').forEach(el=>{el.classList.toggle('selected',el.dataset.theme===active);const tag=el.querySelector('.tag');if(tag)tag.remove();if(el.dataset.theme===active){const b=document.createElement('span');b.className='tag';b.textContent='Active';el.querySelector('.themefoot').appendChild(b)}});
+}
+function current(){return {name:$('themeName').value.trim()||'Custom Theme',accent:$('accent').value,accent2:$('accent2').value,surface:$('surface').value,mode:$('mode').value,wallpaperSelected:!!wallpaperUrl}}
+document.querySelectorAll('.theme').forEach(el=>{function choose(){active=el.dataset.theme;wallpaperUrl='';$('wallpaper').value='';apply(presets[active])}el.addEventListener('click',choose);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose()}})});
+$('apply').addEventListener('click',()=>apply(current()));
+['accent','accent2','surface','mode'].forEach(id=>$(id).addEventListener('input',()=>apply(current())));
+$('wallpaper').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(!f)return;if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>5*1024*1024){alert('Choose a PNG, JPEG or WebP image under 5 MB.');e.target.value='';return}if(wallpaperUrl)URL.revokeObjectURL(wallpaperUrl);wallpaperUrl=URL.createObjectURL(f);apply(current())});
+$('modeToggle').addEventListener('click',()=>{$('mode').value=$('mode').value==='light'?'dark':'light';apply(current())});
+$('reset').addEventListener('click',()=>{active='midnight';wallpaperUrl='';$('wallpaper').value='';apply(presets.midnight)});
+$('copyColors').addEventListener('click',async()=>{const p=current();const t=JSON.stringify({name:p.name,accent:p.accent,secondary:p.accent2,surface:p.surface,mode:p.mode},null,2);try{await navigator.clipboard.writeText(t);alert('Palette copied.')}catch(e){prompt('Copy palette JSON:',t)}});
+$('export').addEventListener('click',()=>{const p=current();const data={schemaVersion:1,name:p.name,palette:{accent:p.accent,secondary:p.accent2,surface:p.surface},mode:p.mode,wallpaperSelected:p.wallpaperSelected,note:'Local preview export. Wallpaper file is not embedded.'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='talviro-theme.json';a.click();URL.revokeObjectURL(url)});
+apply(presets.midnight);
+})();
+</script>
+</body>
+</html>
