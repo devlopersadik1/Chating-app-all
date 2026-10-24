@@ -7,6 +7,10 @@ const rateLimit = require('express-rate-limit');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 
 const app = express();
 app.disable('x-powered-by');
@@ -437,6 +441,107 @@ app.post('/api/v1/conversations', requireAuth, async (req, res) => {
     return res.status(500).json({ status: 'error', message: 'Could not create conversation' });
   } finally {
     db.release();
+  }
+});
+
+// Private media storage: set MEDIA_STORAGE_DIR to a path outside public_html on production.
+const mediaStorageDir = path.resolve(process.env.MEDIA_STORAGE_DIR || path.join(__dirname, 'storage', 'media'));
+const mediaUploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false });
+const allowedMedia = {
+  image: new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),
+  voice: new Set(['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/webm']),
+  file: new Set(['application/pdf', 'text/plain', 'application/zip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+};
+const mediaUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      fs.mkdir(mediaStorageDir, { recursive: true, mode: 0o700 }, err => cb(err, mediaStorageDir));
+    },
+    filename: (req, file, cb) => cb(null, crypto.randomBytes(24).toString('hex'))
+  }),
+  limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 4, fieldSize: 4000 },
+  fileFilter: (req, file, cb) => {
+    const kind = typeof req.body?.media_type === 'string' ? req.body.media_type : '';
+    if (!Object.prototype.hasOwnProperty.call(allowedMedia, kind) || !allowedMedia[kind].has(file.mimetype)) {
+      return cb(new Error('Unsupported media type or MIME type'));
+    }
+    cb(null, true);
+  }
+});
+
+function removeStoredFile(filePath) {
+  if (filePath) fs.promises.unlink(filePath).catch(() => {});
+}
+
+// Upload a single validated media file and create a message in the conversation.
+// Multipart field names: file, media_type=image|video|voice|file, optional body.
+app.post('/api/v1/conversations/:id/media', requireAuth, mediaUploadLimiter, (req, res, next) => {
+  mediaUpload.single('file')(req, res, async err => {
+    if (err) {
+      const status = err instanceof multer.MulterError ? (err.code === 'LIMIT_FILE_SIZE' ? 413 : 400) : 400;
+      return res.status(status).json({ status: 'error', message: status === 413 ? 'File exceeds the 20 MB limit' : 'Unsupported or invalid upload' });
+    }
+    if (!req.file) return res.status(400).json({ status: 'error', message: 'A media file is required' });
+    const conversationId = positiveId(req.params.id);
+    const kind = typeof req.body.media_type === 'string' ? req.body.media_type : '';
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!conversationId || !Object.prototype.hasOwnProperty.call(allowedMedia, kind) || body.length > 1000) {
+      removeStoredFile(req.file.path);
+      return res.status(400).json({ status: 'error', message: 'Invalid conversation, media type, or caption' });
+    }
+    const db = await getPool().getConnection();
+    try {
+      await db.beginTransaction();
+      if (!(await isConversationMember(db, conversationId, req.authUserId))) {
+        await db.rollback();
+        removeStoredFile(req.file.path);
+        return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
+      }
+      const [created] = await db.execute(
+        'INSERT INTO messages (conversation_id, sender_user_id, message_type, body, media_path, media_mime, media_size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [conversationId, req.authUserId, kind, body || null, req.file.filename, req.file.mimetype, req.file.size]
+      );
+      await db.execute('UPDATE conversations SET last_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [created.insertId, conversationId]);
+      await db.execute(
+        'INSERT INTO message_receipts (message_id, user_id) SELECT ?, cm.user_id FROM conversation_members cm WHERE cm.conversation_id = ? AND cm.user_id <> ? AND cm.left_at IS NULL',
+        [created.insertId, conversationId, req.authUserId]
+      );
+      await db.commit();
+      return res.status(201).json({ status: 'ok', message: { id: created.insertId, conversation_id: conversationId, sender_user_id: req.authUserId, message_type: kind, body: body || null, media_mime: req.file.mimetype, media_size_bytes: req.file.size, created_at: new Date().toISOString() } });
+    } catch (e) {
+      await db.rollback();
+      removeStoredFile(req.file.path);
+      console.error('Media message upload failed:', e.message);
+      return res.status(500).json({ status: 'error', message: 'Could not save media message' });
+    } finally {
+      db.release();
+    }
+  });
+});
+
+// Download media only if the authenticated user belongs to its conversation.
+app.get('/api/v1/media/:messageId', requireAuth, async (req, res) => {
+  const messageId = positiveId(req.params.messageId);
+  if (!messageId) return res.status(400).json({ status: 'error', message: 'Invalid media message ID' });
+  try {
+    const [rows] = await getPool().execute(
+      'SELECT m.media_path, m.media_mime, m.media_size_bytes FROM messages m JOIN conversation_members cm ON cm.conversation_id = m.conversation_id AND cm.user_id = ? AND cm.left_at IS NULL WHERE m.id = ? AND m.deleted_at IS NULL AND m.media_path IS NOT NULL LIMIT 1',
+      [req.authUserId, messageId]
+    );
+    if (!rows[0]) return res.status(404).json({ status: 'error', message: 'Media not found' });
+    const filePath = path.join(mediaStorageDir, path.basename(rows[0].media_path));
+    if (!filePath.startsWith(mediaStorageDir + path.sep)) return res.status(404).json({ status: 'error', message: 'Media not found' });
+    res.setHeader('Content-Type', rows[0].media_mime || 'application/octet-stream');
+    res.setHeader('Content-Length', String(rows[0].media_size_bytes || 0));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.sendFile(filePath, err => {
+      if (err && !res.headersSent) res.status(err.statusCode === 404 ? 404 : 500).json({ status: 'error', message: 'Could not read media file' });
+    });
+  } catch (err) {
+    console.error('Media download failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not load media' });
   }
 });
 
@@ -974,8 +1079,8 @@ app.get('/api/v1', (req, res) => {
     name: 'Talviro Chat API',
     version: '0.3.0',
     status: 'text-chat-foundation',
-    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages', 'read-receipts', 'channels-groups', 'channel-posts'],
-    note: 'Channel/group APIs currently support create, list, public discovery, public join with optional approval, and text posts. Media uploads, role-management APIs, moderation/admin review, phone OTP, FCM, LiveKit, and WebSocket real-time are not implemented yet.'
+    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages', 'media-messages', 'read-receipts', 'channels-groups', 'channel-posts'],
+    note: 'Conversation media upload/download endpoints are available but require cPanel storage configuration and end-to-end testing. Role-management APIs, moderation/admin review, phone OTP, FCM, LiveKit, and WebSocket real-time are not implemented yet.'
   });
 });
 
