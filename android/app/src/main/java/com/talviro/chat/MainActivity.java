@@ -126,6 +126,19 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(14), dp(12), dp(14), dp(12));
         row.setBackgroundColor(0xFFFFFFFF);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> {
+            try {
+                long conversationId = Long.parseLong(id);
+                Intent intent = new Intent(this, ChatActivity.class);
+                intent.putExtra("conversation_id", conversationId);
+                intent.putExtra("conversation_title", title);
+                startActivity(intent);
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Invalid conversation", Toast.LENGTH_SHORT).show();
+            }
+        });
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         rowParams.bottomMargin = dp(8);
