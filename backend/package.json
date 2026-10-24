@@ -1,0 +1,22 @@
+{
+  "name": "talviro-chat-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Talviro Chat backend API for cPanel",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "check": "node --check app.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "mysql2": "^3.14.0"
+  }
+}
