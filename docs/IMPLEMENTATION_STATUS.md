@@ -62,3 +62,11 @@ Before production use, implement CSRF protections for cookie-authenticated state
 - Outgoing message history includes delivery/read counts; the web chat refreshes messages and conversation list every five seconds and displays Sent, Delivered, or Seen.
 - This is polling, not WebSocket real-time. Requires migration `0003_chat_schema.sql` to be applied after checking and backing up the database.
 - CI/build, live database, and cPanel deployment have not been verified or performed.
+
+
+## Latest milestone — floating Talviro AI assistant
+
+- Added a floating round assistant launcher globally through the root layout, so it appears across frontend pages.
+- Added an assistant panel with suggested prompts, message history for the current open panel, loading/error states, and a server-side provider route.
+- The AI provider is optional and not yet configured. Set `TALVIRO_AI_API_URL`, `TALVIRO_AI_API_KEY`, and `TALVIRO_AI_MODEL` in the frontend server environment; keep the key private and never use a `NEXT_PUBLIC_` variable for it.
+- No frontend production build or live provider request has been verified. Until the provider settings are configured, the assistant endpoint intentionally returns a setup message.
