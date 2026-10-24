@@ -3,6 +3,8 @@ package com.talviro.chat;
 import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -23,6 +25,16 @@ public class ChatActivity extends Activity {
     private TextView status;
     private EditText composer;
     private Button sendButton;
+    private long currentUserId = -1;
+    private final Handler refreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable refreshRunnable = new Runnable() {
+        @Override public void run() {
+            if (!isFinishing()) {
+                loadMessages(false);
+                refreshHandler.postDelayed(this, 10000);
+            }
+        }
+    };
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Override protected void onCreate(Bundle state) {
@@ -81,11 +93,29 @@ public class ChatActivity extends Activity {
         bottom.addView(sendButton);
         root.addView(bottom);
         setContentView(root);
-        loadMessages();
+        loadCurrentUserAndMessages();
+        refreshHandler.postDelayed(refreshRunnable, 10000);
+    }
+
+    private void loadCurrentUserAndMessages() {
+        executor.execute(() -> {
+            try {
+                ApiClient.ApiResult me = ApiClient.request(this, "GET", "auth/me", null);
+                JSONObject user = me.body.optJSONObject("user");
+                if (me.ok() && user != null) currentUserId = user.optLong("id", -1);
+            } catch (Exception ignored) {
+                // Message history will show a normal API error if the session is invalid.
+            }
+            loadMessages(false);
+        });
     }
 
     private void loadMessages() {
-        status.setText("Loading messages…");
+        loadMessages(true);
+    }
+
+    private void loadMessages(boolean showLoading) {
+        if (showLoading) status.setText("Loading messages…");
         executor.execute(() -> {
             try {
                 ApiClient.ApiResult result = ApiClient.request(this, "GET",
@@ -113,19 +143,28 @@ public class ChatActivity extends Activity {
             String body = item.optString("body", "");
             String type = item.optString("message_type", "text");
             if (!"text".equals(type) && body.trim().isEmpty()) body = "[" + type + "]";
+            boolean mine = currentUserId > 0 && item.optLong("sender_user_id", -1) == currentUserId;
             TextView bubble = new TextView(this);
-            bubble.setText(sender + "\n" + body);
+            String text = sender + "\\n" + body;
+            if (mine) {
+                int readCount = item.optInt("read_count", 0);
+                int deliveredCount = item.optInt("delivered_count", 0);
+                String receipt = readCount > 0 ? "✓✓ Read (" + readCount + ")" :
+                    deliveredCount > 0 ? "✓✓ Delivered (" + deliveredCount + ")" : "✓ Sent";
+                text += "\\n" + receipt;
+            }
+            bubble.setText(text);
             bubble.setTextColor(0xFF25243A);
             bubble.setTextSize(15);
             bubble.setPadding(dp(12), dp(9), dp(12), dp(9));
-            bubble.setBackgroundColor(0xFFFFFFFF);
+            bubble.setBackgroundColor(mine ? 0xFFE4F7EC : 0xFFFFFFFF);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 Math.min(getResources().getDisplayMetrics().widthPixels - dp(64), dp(320)), -2);
             params.bottomMargin = dp(8);
-            params.gravity = Gravity.START;
+            params.gravity = mine ? Gravity.END : Gravity.START;
             messagesBox.addView(bubble, params);
         }
-        status.setText(items.length() == 0 ? "No messages yet. Say hello!" : items.length() + " message(s)");
+        status.setText(items.length() == 0 ? "No messages yet. Say hello!" : items.length() + " message(s) • auto-refresh 10s");
         scrollView.post(() -> scrollView.fullScroll(View.FOCUS_DOWN));
     }
 
@@ -173,6 +212,7 @@ public class ChatActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        refreshHandler.removeCallbacks(refreshRunnable);
         executor.shutdownNow();
         super.onDestroy();
     }
