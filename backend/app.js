@@ -364,6 +364,7 @@ app.get('/api/v1/conversations/:id/messages', requireAuth, async (req, res) => {
     if (!(await isConversationMember(getPool(), conversationId, req.authUserId))) {
       return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
     }
+    await markMessagesSeen(getPool(), conversationId, req.authUserId);
     const params = [conversationId];
     let cursor = '';
     if (beforeId) { cursor = ' AND m.id < ?'; params.push(beforeId); }
@@ -371,7 +372,9 @@ app.get('/api/v1/conversations/:id/messages', requireAuth, async (req, res) => {
     const [rows] = await getPool().execute(
       `SELECT m.id, m.conversation_id, m.sender_user_id, u.name AS sender_name, u.username AS sender_username,
               m.message_type, m.body, m.media_path, m.media_mime, m.media_size_bytes,
-              m.reply_to_message_id, m.created_at, m.edited_at
+              m.reply_to_message_id, m.created_at, m.edited_at,
+              (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.delivered_at IS NOT NULL) AS delivered_count,
+              (SELECT COUNT(*) FROM message_receipts mr WHERE mr.message_id = m.id AND mr.read_at IS NOT NULL) AS read_count
        FROM messages m JOIN users u ON u.id = m.sender_user_id
        WHERE m.conversation_id = ? AND m.deleted_at IS NULL ${cursor}
        ORDER BY m.id DESC LIMIT ?`,
@@ -504,8 +507,8 @@ app.get('/api/v1', (req, res) => {
     name: 'Talviro Chat API',
     version: '0.3.0',
     status: 'text-chat-foundation',
-    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages'],
-    note: 'Real-time events, media uploads, phone OTP, admin, FCM and LiveKit modules are planned for later phases.'
+    modules: ['health', 'database-health', 'email-password-auth', 'user-search', 'conversations', 'text-messages', 'read-receipts'],
+    note: 'Polling-based refresh is currently used by the web client; WebSocket real-time events, media uploads, phone OTP, admin, FCM and LiveKit are planned for later phases.'
   });
 });
 
