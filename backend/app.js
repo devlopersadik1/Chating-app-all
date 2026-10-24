@@ -135,6 +135,10 @@ app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Phone number is too long' });
   }
 
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || process.env.JWT_SECRET === 'REPLACE_WITH_A_LONG_RANDOM_SECRET') {
+    return res.status(503).json({ status: 'error', message: 'Authentication is not configured on the server' });
+  }
+
   try {
     const passwordHash = await bcrypt.hash(password, 12);
     const [result] = await getPool().execute(
