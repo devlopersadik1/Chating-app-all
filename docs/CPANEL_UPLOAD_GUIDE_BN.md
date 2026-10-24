@@ -26,6 +26,7 @@ cPanel → MySQL Databases থেকে database ও আলাদা database us
 - `NODE_ENV=production`
 - `PORT` — hosting Node.js app যে port দেয়, সেটির নির্দেশনা অনুসরণ করুন
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `MEDIA_STORAGE_DIR` — `public_html`-এর বাইরে private media directory, যেমন `/home/CPANEL_USERNAME/private/talviro-media`; নিজের cPanel username ও writable path বসাবেন
 - `JWT_SECRET` — কমপক্ষে 32 অক্ষরের অনন্য random secret
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
 - `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS`
@@ -38,7 +39,10 @@ cPanel → MySQL Databases থেকে database ও আলাদা database us
 ## 5. Dependencies এবং app চালু
 cPanel Node.js App screen-এ application root হিসেবে backend directory, entry file হিসেবে `app.js`, এবং hosting-এর নির্দেশিত Node.js version নির্বাচন করুন। cPanel-এর terminal/setup control থেকে package install করার জন্য hosting-এর নির্দেশনা অনুসরণ করুন (সাধারণত `npm install`)। তারপর app restart করুন।
 
-## 6. Database schema / migrations — সাবধান
+## 6. Private media storage
+Backend-এ media upload endpoint আছে: `POST /api/v1/conversations/:id/media`। Multipart field `file`, `media_type` (`image`, `video`, `voice`, `file`) এবং optional `body` ব্যবহার করে। সর্বোচ্চ 20 MB; MIME type allowlist আছে। Download endpoint `GET /api/v1/media/:messageId`-এ valid Bearer token এবং সংশ্লিষ্ট conversation membership দরকার। `MEDIA_STORAGE_DIR` অবশ্যই public web root-এর বাইরে রাখুন। এই API এখনো end-to-end পরীক্ষা করা হয়নি।
+
+## 7. Database schema / migrations — সাবধান
 এখনো production database-এ কোনো migration চালানো হয়নি। আগে backup নিন এবং migration ফাইলগুলো পড়ে সঠিক ক্রম নিশ্চিত করুন। `database/schema.sql` ও migrations-এ overlap থাকতে পারে; সব SQL অন্ধভাবে একসাথে চালাবেন না। প্রথমে test database-এ schema যাচাই করুন। Owner-এর স্পষ্ট অনুমতি ছাড়া production migration চালাবেন না।
 
 ## 7. Media upload সেটআপ
