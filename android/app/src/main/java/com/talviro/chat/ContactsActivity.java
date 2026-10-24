@@ -2,6 +2,9 @@ package com.talviro.chat;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
@@ -24,7 +27,7 @@ public class ContactsActivity extends Activity {
         super.onCreate(state);
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(18),dp(18),dp(18)); root.setBackgroundColor(0xfff5f6fb);
         root.addView(text("Talviro Chat · Contacts", 23));
-        root.addView(text("Contacts are private to your account.", 13));
+        root.addView(text("Find people who use Talviro Chat by matching your phone contacts. Your permission is required; contact matching will be connected to the secure server in the next step.", 13));
         name = field("Contact display name *"); root.addView(name);
         phone = field("Phone in international format (optional)"); root.addView(phone);
         note = field("Private note (optional)"); root.addView(note);
@@ -35,6 +38,17 @@ public class ContactsActivity extends Activity {
         setContentView(root);
         add.setOnClickListener(v -> saveContact());
         loadContacts();
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 2002) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                status.setText("Contact permission granted. Account matching server is not connected yet.");
+            } else {
+                status.setText("Contacts permission denied. You can still add contacts manually.");
+            }
+        }
     }
 
     private void saveContact() {
