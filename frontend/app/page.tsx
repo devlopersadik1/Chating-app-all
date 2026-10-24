@@ -19,7 +19,7 @@ export default function HomePage() {
           <span>talviro<span className="brand-dot">.</span></span>
         </a>
         <div className="nav-links"><a href="#experience">Experience</a><a href="#privacy">Privacy</a><a href="#features">Features</a></div>
-        <a className="nav-cta" href="#preview">Explore preview <ArrowUpRight size={15}/></a>
+        <div className="nav-actions"><a className="nav-login" href="/login">Sign in</a><a className="nav-cta" href="/register">Get started <ArrowUpRight size={15}/></a></div>
       </nav>
 
       <section className="hero">
