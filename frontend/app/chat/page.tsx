@@ -22,6 +22,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -35,11 +36,7 @@ export default function ChatPage() {
   const loadConversations = useCallback(async () => {
     const data = await api<{ conversations: Conversation[] }>("/api/chat/conversations");
     setConversations(data.conversations);
-    if (selected) {
-      const refreshed = data.conversations.find(item => item.id === selected.id);
-      if (refreshed) setSelected(refreshed);
-    }
-  }, [selected]);
+  }, []);
 
   const loadMessages = useCallback(async (conversation: Conversation) => {
     setLoadingMessages(true);
@@ -51,6 +48,9 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    api<{ user: { id: number } }>("/api/auth/me")
+      .then(data => setCurrentUserId(data.user.id))
+      .catch(err => setError(err instanceof Error ? err.message : "Could not verify session"));
     loadConversations().catch(err => setError(err instanceof Error ? err.message : "Could not load chats"));
   }, [loadConversations]);
 
@@ -140,7 +140,7 @@ export default function ChatPage() {
             <div className="message-list" aria-live="polite">
               {loadingMessages && messages.length === 0 && <p className="empty-note">Loading messages…</p>}
               {!loadingMessages && messages.length === 0 && <div className="empty-chat message-empty"><MessageCircle size={23}/><b>Say hello 👋</b><span>Your conversation is ready.</span></div>}
-              {messages.map(message => <div key={message.id} className={`chat-bubble-row ${message.sender_user_id === (selected as Conversation & { currentUserId?: number }).currentUserId ? "own-message" : ""}`}>
+              {messages.map(message => <div key={message.id} className={`chat-bubble-row ${message.sender_user_id === currentUserId ? "own-message" : ""}`}>
                 <div className="chat-bubble"><small>{message.sender_name}</small><p>{message.body}</p><time>{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></div>
               </div>)}
             </div>
