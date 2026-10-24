@@ -37,6 +37,9 @@ public class ContactsActivity extends Activity {
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         add.setOnClickListener(v -> saveContact());
+        if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, 2002);
+        }
         loadContacts();
     }
 
@@ -45,6 +48,17 @@ public class ContactsActivity extends Activity {
         if (requestCode == 2002) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 status.setText("Contact permission granted. Account matching server is not connected yet.");
+            } else {
+                status.setText("Contacts permission denied. You can still add contacts manually.");
+            }
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 2002) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                status.setText("Contacts permission granted. Account matching server is not connected yet.");
             } else {
                 status.setText("Contacts permission denied. You can still add contacts manually.");
             }
