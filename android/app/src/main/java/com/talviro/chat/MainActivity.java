@@ -2,6 +2,9 @@ package com.talviro.chat;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -22,6 +25,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_main);
+        requestNotificationPermissionOnFirstLaunch();
 
         chatsPanel = findViewById(R.id.chats_panel);
         statusPanel = findViewById(R.id.status_panel);
@@ -41,6 +45,16 @@ public class MainActivity extends Activity {
         contactsTab.setOnClickListener(v -> startActivity(new Intent(this, ContactsActivity.class)));
 
         showTab("chats");
+    }
+
+    private void requestNotificationPermissionOnFirstLaunch() {
+        if (Build.VERSION.SDK_INT < 33) return;
+        SharedPreferences prefs = getSharedPreferences("talviro_permissions", MODE_PRIVATE);
+        if (prefs.getBoolean("notification_prompted", false)) return;
+        prefs.edit().putBoolean("notification_prompted", true).apply();
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 2001);
+        }
     }
 
     private void showTab(String tab) {
