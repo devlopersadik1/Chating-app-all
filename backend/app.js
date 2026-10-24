@@ -439,6 +439,66 @@ app.post('/api/v1/conversations/:id/messages', requireAuth, async (req, res) => 
   }
 });
 
+
+// Mark messages in a conversation as delivered/read for the current member.
+// Fetching history is treated as the user opening that conversation.
+async function markMessagesSeen(db, conversationId, userId, throughMessageId = null) {
+  const params = [conversationId, userId, userId];
+  let throughClause = '';
+  if (throughMessageId !== null) {
+    throughClause = ' AND m.id <= ?';
+    params.push(throughMessageId);
+  }
+  await db.execute(
+    `UPDATE message_receipts mr
+     JOIN messages m ON m.id = mr.message_id
+     SET mr.delivered_at = COALESCE(mr.delivered_at, CURRENT_TIMESTAMP),
+         mr.read_at = COALESCE(mr.read_at, CURRENT_TIMESTAMP)
+     WHERE m.conversation_id = ? AND mr.user_id = ? AND m.sender_user_id <> ?
+       AND m.deleted_at IS NULL ${throughClause}`,
+    params
+  );
+  const [latest] = await db.execute(
+    'SELECT MAX(m.id) AS latest_id FROM messages m WHERE m.conversation_id = ? AND m.sender_user_id <> ? AND m.deleted_at IS NULL',
+    [conversationId, userId]
+  );
+  if (latest[0]?.latest_id) {
+    await db.execute(
+      'UPDATE conversation_members SET last_read_message_id = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL',
+      [throughMessageId || latest[0].latest_id, conversationId, userId]
+    );
+  }
+}
+
+// Receipt status is only exposed to the sender, via per-message aggregate counts.
+app.post('/api/v1/conversations/:id/receipts/read', requireAuth, async (req, res) => {
+  const conversationId = positiveId(req.params.id);
+  const throughMessageId = req.body.message_id == null ? null : positiveId(req.body.message_id);
+  if (!conversationId || (req.body.message_id != null && !throughMessageId)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid conversation or message ID' });
+  }
+  const db = await getPool().getConnection();
+  try {
+    if (!(await isConversationMember(db, conversationId, req.authUserId))) {
+      return res.status(403).json({ status: 'error', message: 'Conversation unavailable' });
+    }
+    if (throughMessageId) {
+      const [target] = await db.execute(
+        'SELECT id FROM messages WHERE id = ? AND conversation_id = ? AND deleted_at IS NULL LIMIT 1',
+        [throughMessageId, conversationId]
+      );
+      if (!target.length) return res.status(400).json({ status: 'error', message: 'Message not found in this conversation' });
+    }
+    await markMessagesSeen(db, conversationId, req.authUserId, throughMessageId);
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Read receipt update failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not update read status' });
+  } finally {
+    db.release();
+  }
+});
+
 app.get('/api/v1', (req, res) => {
   res.json({
     name: 'Talviro Chat API',
