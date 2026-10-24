@@ -54,3 +54,11 @@ Before production use, implement CSRF protections for cookie-authenticated state
 - Added a GitHub Actions workflow to run backend syntax checks and a Next.js production build on pushes and pull requests.
 
 **Not yet verified:** the CI workflow has been committed but its run result has not been checked. No live database connection, live API test, migration, or cPanel deployment was performed. Real-time delivery, unread/read receipts, file/media uploads, group UI, FCM, LiveKit, and E2EE remain future work.
+
+
+## Latest milestone — message receipts
+
+- Opening message history marks incoming messages as delivered/read for the signed-in conversation member.
+- Outgoing message history includes delivery/read counts; the web chat refreshes messages and conversation list every five seconds and displays Sent, Delivered, or Seen.
+- This is polling, not WebSocket real-time. Requires migration `0003_chat_schema.sql` to be applied after checking and backing up the database.
+- CI/build, live database, and cPanel deployment have not been verified or performed.
