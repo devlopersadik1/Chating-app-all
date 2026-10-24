@@ -4,6 +4,12 @@ Last updated: 2026-10-24
 
 ## Completed in this step
 
+- Added the initial Next.js App Router frontend under `frontend/` with TypeScript, responsive CSS, package scripts, and ESLint configuration.
+- Added sign-in and registration screens connected through Next.js server route handlers to the existing Express auth endpoints.
+- Added HTTP-only `SameSite=Lax` session cookie handling, a current-session check route, logout route, and a basic account landing screen.
+- Added local-development API configuration: Express example port 4000 and Next.js port 3000.
+- Confirmed the new authentication/frontend files are present in the GitHub repository. This is a repository-content check, not a successful build or runtime test.
+
 - Added `web/admin/themes.html`, a responsive Theme Studio UI prototype.
 - Added four local preview presets: Midnight Aura, Deep Ocean, Orchid Bloom, and Pearl Light.
 - Added color/mode controls, local wallpaper preview with image type and 5 MB checks, palette copy, and JSON export.
@@ -30,3 +36,10 @@ New schema changes must be added as a new, sequentially numbered file in `databa
 ## Secret-handling rule
 
 Do not commit `.env`, database passwords, Firebase service-account private keys, LiveKit API secrets, or Telegram bot tokens. Keep provider credentials in server-side environment variables only. Any credential previously exposed publicly should be rotated before deployment.
+
+
+## Latest milestone — frontend authentication foundation
+
+The Next.js login/register pages now call same-origin `/api/auth/*` route handlers. The route handlers forward requests to Express server-side and place the returned JWT into an HTTP-only cookie. Browser JavaScript does not receive the raw token from these handlers.
+
+Before production use, implement CSRF protections for cookie-authenticated state-changing routes, token/session revocation on logout, email verification and password recovery, then run a real dependency install/build and API security tests. No cPanel deployment or database migration was performed in this milestone.
