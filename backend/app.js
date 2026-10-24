@@ -503,6 +503,30 @@ app.post('/api/v1/conversations/:id/receipts/read', requireAuth, async (req, res
 });
 
 
+// Match an explicitly submitted, permission-backed phone-contact batch to active accounts.
+// The client must request Android READ_CONTACTS permission before collecting these numbers.
+app.post('/api/v1/contacts/match', requireAuth, async (req, res) => {
+  const raw = req.body && req.body.phone_numbers;
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 200) {
+    return res.status(400).json({ status: 'error', message: 'Send 1 to 200 phone_numbers in E.164 format.' });
+  }
+  const numbers = [...new Set(raw.filter(v => typeof v === 'string').map(v => v.trim()))];
+  if (numbers.length !== raw.length || numbers.some(v => !/^\\+[1-9]\\d{6,14}$/.test(v))) {
+    return res.status(400).json({ status: 'error', message: 'All phone numbers must be valid E.164 strings.' });
+  }
+  try {
+    const placeholders = numbers.map(() => '?').join(',');
+    const [rows] = await getPool().execute(
+      `SELECT id, name, username, profile_photo FROM users WHERE account_status = 'active' AND phone IN (${placeholders}) AND id <> ? LIMIT 200`,
+      [...numbers, req.authUserId]
+    );
+    return res.json({ status: 'ok', matches: rows.map(u => ({ id: u.id, name: u.name, username: u.username, profile_photo: u.profile_photo })) });
+  } catch (err) {
+    console.error('Phone contact matching failed:', err.message);
+    return res.status(500).json({ status: 'error', message: 'Could not match contacts. Check database schema and phone format.' });
+  }
+});
+
 // Contacts API: private contact-book entries only; no global phone-number lookup.
 app.get('/api/v1/contacts', requireAuth, async (req, res) => {
   try {
