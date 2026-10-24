@@ -36,8 +36,9 @@ export default function AccountPage() {
         <div className="eyebrow">Your Talviro account</div>
         <h1>{state === "loading" ? "Loading your account…" : state === "error" ? "Session ended" : `Welcome, ${user?.name}.`}</h1>
         {user && <><p className="auth-copy">Your account was authenticated by the Talviro API.</p><div className="account-detail"><span>Username</span><b>@{user.username}</b></div><div className="account-detail"><span>Email</span><b>{user.email}</b></div><div className="account-detail"><span>Account ID</span><b>{user.id}</b></div></>}
-        <div className="account-notice"><ShieldCheck size={17}/><span>This is an authentication milestone. Real conversations, profile editing and calling are still under development.</span></div>
-        <Link href="/" className="button-primary account-home">Return to home <MessageCircle size={15}/></Link>
+        <div className="account-notice"><ShieldCheck size={17}/><span>This is an authentication milestone. Text chat is now in its first implementation phase. Profile editing and calling are still under development.</span></div>
+        <Link href="/chat" className="button-primary account-home">Open messages <MessageCircle size={15}/></Link>
+        <Link href="/" className="auth-back">Return to home</Link>
       </section>
     </main>
   );
