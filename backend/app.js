@@ -765,6 +765,10 @@ app.post('/api/v1/channels/:id/join', requireAuth, async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Public channel/group not found' });
     }
     const existing = await getChannelMembership(db, channelId, req.authUserId);
+    if (existing && existing.membership_status === 'banned') {
+      await db.rollback();
+      return res.status(403).json({ status: 'error', message: 'You cannot join this channel/group' });
+    }
     if (existing && existing.membership_status === 'active') {
       await db.commit();
       return res.json({ status: 'ok', membership_status: 'active', already_member: true });
