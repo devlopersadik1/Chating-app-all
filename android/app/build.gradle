@@ -1,0 +1,17 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.talviro.chat'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.talviro.chat'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        buildConfigField 'String', 'API_BASE_URL', '"https://YOUR_DOMAIN.example/api/v1/"'
+    }
+
+    buildFeatures { buildConfig true }
+}
