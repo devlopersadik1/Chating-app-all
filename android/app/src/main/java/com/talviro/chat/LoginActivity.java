@@ -95,6 +95,13 @@ public class LoginActivity extends Activity {
         message.setPadding(0, dp(12), 0, 0);
         root.addView(message);
 
+        Button registerButton = new Button(this);
+        registerButton.setText("Create new account");
+        registerButton.setOnClickListener(v -> startActivity(new Intent(this, RegisterActivity.class)));
+        LinearLayout.LayoutParams registerParams = new LinearLayout.LayoutParams(-1, -2);
+        registerParams.topMargin = dp(4);
+        root.addView(registerButton, registerParams);
+
         Button forgotButton = new Button(this);
         forgotButton.setText("Forgot password?");
         forgotButton.setOnClickListener(v -> startActivity(new Intent(this, ForgotPasswordActivity.class)));
