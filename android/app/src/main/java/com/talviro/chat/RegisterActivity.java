@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class RegisterActivity extends Activity {
-    private EditText nameInput, usernameInput, emailInput, phoneInput, passwordInput;
+    private EditText nameInput, usernameInput, emailInput, phoneInput, passwordInput, confirmInput;
     private Button registerButton;
     private ProgressBar progress;
     private TextView message;
@@ -59,7 +59,7 @@ public class RegisterActivity extends Activity {
         usernameInput = field(root, "Username (a-z, 0-9, _)", android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         emailInput = field(root, "Email address", android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         phoneInput = field(root, "Phone (optional)", android.text.InputType.TYPE_CLASS_PHONE);
-        passwordInput = field(root, "Password (at least 10 characters)", android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordInput = field(root, "Password (at least 10 characters)", android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);\n        confirmInput = field(root, "Confirm password", android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
 
         registerButton = new Button(this);
         registerButton.setText("Create account");
@@ -108,13 +108,13 @@ public class RegisterActivity extends Activity {
         String username = usernameInput.getText().toString().trim().toLowerCase(java.util.Locale.ROOT);
         String email = emailInput.getText().toString().trim();
         String phone = phoneInput.getText().toString().trim();
-        String password = passwordInput.getText().toString();
+        String password = passwordInput.getText().toString();\n        String confirm = confirmInput.getText().toString();
 
         if (name.length() < 2 || username.length() < 3 || email.isEmpty() || password.length() < 10) {
             message.setText("Enter your name, username (3+ characters), email, and password (10+ characters).");
             return;
         }
-        if (BuildConfig.API_BASE_URL.contains("YOUR_DOMAIN.example")) {
+        if (!username.matches("[a-z0-9_]{3,30}")) {\n            message.setText("Username must be 3–30 characters: lowercase letters, numbers, or underscore.");\n            return;\n        }\n        if (!password.equals(confirm)) {\n            message.setText("Passwords do not match.");\n            return;\n        }\n        if (BuildConfig.API_BASE_URL.contains("YOUR_DOMAIN.example")) {
             message.setText("First set the real HTTPS API URL in android/app/build.gradle.");
             return;
         }
@@ -123,7 +123,7 @@ public class RegisterActivity extends Activity {
         progress.setVisibility(View.VISIBLE);
         message.setText("");
         ((InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE))
-                .hideSoftInputFromWindow(passwordInput.getWindowToken(), 0);
+                .hideSoftInputFromWindow(confirmInput.getWindowToken(), 0);
 
         executor.execute(() -> {
             String error = null;
