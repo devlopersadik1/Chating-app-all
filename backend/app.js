@@ -165,7 +165,6 @@ app.post('/api/v1/auth/register', authLimiter, async (req, res) => {
 });
 
 
-const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false });
 function getMailTransport() {
